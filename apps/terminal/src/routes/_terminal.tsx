@@ -148,6 +148,8 @@ import {
 import { WorkspaceTreeSidebar } from '@/components/workspace/workspace-tree-sidebar'
 import { FeedbackDialog } from '@/components/feedback/feedback-dialog'
 import { DesktopDownloadDialog } from '@/components/feedback/desktop-download-dialog'
+import { AuthModal } from '@/components/auth/auth-modal'
+import { SupabaseDataService, DbUser } from '@/lib/services/supabase-service'
 
 import UserSettingsDialog from '@/components/user-settings-dialog'
 import { MobileTerminalRoot, useViewportMode } from '@/mobile'
@@ -367,6 +369,15 @@ function TerminalLayout() {
   useKeyboardShortcuts(navShortcuts)
   const shortcutLabel = useKeybindingLabels()
 
+  const [stacUser, setStacUser] = useState<DbUser | null>(() => SupabaseDataService.getCurrentUser())
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+
+  useEffect(() => {
+    const handler = () => setStacUser(SupabaseDataService.getCurrentUser())
+    window.addEventListener('stac:auth:changed', handler)
+    return () => window.removeEventListener('stac:auth:changed', handler)
+  }, [])
+
   const sectionLabelMap: Record<string, string> = {
     pairs: t('discovery.title'),
     charts: t('nav.charts'),
@@ -379,9 +390,9 @@ function TerminalLayout() {
     'workspace-store': t('nav.workspaceStore'),
   }
   const sectionLabel = sectionLabelMap[activeItem]
-  const userEmail = currentUser?.email ?? session?.user.email ?? 'local'
+  const userEmail = stacUser?.email ?? currentUser?.email ?? session?.user.email ?? 'local'
   const userName =
-    currentUser?.name ?? session?.user.name ?? userEmail.split('@')[0]
+    stacUser?.name ?? currentUser?.name ?? session?.user.name ?? userEmail.split('@')[0]
   const authUserImage = currentUser?.image ?? session?.user.image ?? undefined
   const customAvatarUrl = resolveUrl(userSettings?.avatarUrl) ?? null
   const userImage = customAvatarUrl ?? authUserImage
@@ -741,13 +752,18 @@ function TerminalLayout() {
                           <TerminalUserMenu
                             initials={initials || 'PL'}
                             isSigningOut={signOut.isPending}
-                            onSignOut={() => signOut.mutate()}
+                            onSignOut={() => {
+                              if (stacUser) SupabaseDataService.signOut()
+                              signOut.mutate()
+                            }}
                             authUserImage={authUserImage}
                             customAvatarUrl={customAvatarUrl}
                             userEmail={userEmail}
                             userImage={userImage}
                             userName={userName}
-                            hasSession={Boolean(session)}
+                            hasSession={Boolean(session || stacUser)}
+                            stacUser={stacUser}
+                            onOpenAuth={() => setAuthModalOpen(true)}
                           />
                           {signOut.isError ? (
                             <p className="text-center text-xs text-red-600">
@@ -815,6 +831,7 @@ function TerminalLayout() {
           </ThemePluginBridge>
         </MarketDataProvider>
       </PairlensProvider>
+      <AuthModal open={authModalOpen} onOpenChange={setAuthModalOpen} />
     </PerformanceModeContext.Provider>
   )
 }
@@ -957,6 +974,8 @@ function TerminalUserMenu({
   isSigningOut,
   onSignOut,
   hasSession,
+  stacUser,
+  onOpenAuth,
 }: {
   userName: string
   userEmail: string
@@ -967,6 +986,8 @@ function TerminalUserMenu({
   isSigningOut: boolean
   onSignOut: () => void
   hasSession: boolean
+  stacUser?: DbUser | null
+  onOpenAuth?: () => void
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -1020,7 +1041,14 @@ function TerminalUserMenu({
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left leading-tight">
-                      <span className="truncate font-medium">{userName}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate font-medium">{userName}</span>
+                        {stacUser?.plan && (
+                          <span className="text-[9px] font-mono px-1 py-0.2 bg-primary/20 text-primary uppercase rounded font-bold">
+                            {stacUser.plan}
+                          </span>
+                        )}
+                      </div>
                       <span className="truncate text-xs text-muted-foreground">
                         {userEmail}
                       </span>
@@ -1045,34 +1073,29 @@ function TerminalUserMenu({
                       />
                       <div className="grid gap-1">
                         <span className="text-balance font-serif text-[15px] leading-[1.15] font-semibold tracking-[-0.01em] text-foreground">
-                          {hasAppServer
-                            ? t('userMenu.guestTitle')
-                            : t('userMenu.guest')}
+                          Welcome to Pairlens
                         </span>
                         <span className="text-pretty text-[12px] leading-[1.45] text-muted-foreground">
-                          {hasAppServer
-                            ? t('userMenu.guestSubtitle')
-                            : t('userMenu.signInDescription')}
+                          Sign in or create an account to access pro features, custom signals and portfolio sync.
                         </span>
                       </div>
                     </div>
 
-                    {hasAppServer && (
-                      <>
-                        <DropdownMenuItem
-                          onClick={() => void navigate({ to: '/sign-in' })}
-                          className="group mt-0.5 cursor-pointer justify-center gap-2 rounded-lg bg-primary py-2 text-[13px] font-semibold text-primary-foreground shadow-sm transition-[background-color,transform] duration-150 hover:bg-primary/90 focus:bg-primary/90 focus:text-primary-foreground not-data-[variant=destructive]:focus:**:text-primary-foreground active:scale-[.99]"
-                        >
-                          <LogIn />
-                          {t('userMenu.signIn')}
-                        </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        if (onOpenAuth) onOpenAuth()
+                        else void navigate({ to: '/sign-in' })
+                      }}
+                      className="group mt-0.5 cursor-pointer justify-center gap-2 rounded-lg bg-primary py-2 text-[13px] font-semibold text-primary-foreground shadow-sm transition-[background-color,transform] duration-150 hover:bg-primary/90 focus:bg-primary/90 focus:text-primary-foreground not-data-[variant=destructive]:focus:**:text-primary-foreground active:scale-[.99]"
+                    >
+                      <LogIn />
+                      Sign In / Sign Up
+                    </DropdownMenuItem>
 
-                        <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-                          <ShieldCheck className="size-3 text-primary/70" />
-                          {t('userMenu.guestReassurance')}
-                        </div>
-                      </>
-                    )}
+                    <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                      <ShieldCheck className="size-3 text-primary/70" />
+                      Free & VIP access enabled
+                    </div>
                   </div>
                 </div>
               </div>

@@ -1,7 +1,8 @@
 // Copyright (c) 2026 Juan Ignacio Molina Estrada
 // SPDX-License-Identifier: FSL-1.1-Apache-2.0
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Lock, Sparkles, UserRound, LogOut } from 'lucide-react'
 
 import type {
   DiscoverySection,
@@ -13,6 +14,13 @@ import { PageHeader } from '@/components/page-header'
 import { PairlensLogo } from '@/components/pairlens-logo'
 import { DiscoverySectionTabs } from '@/components/discovery/discovery-section-tabs'
 import { DiscoveryVenuePicker } from '@/components/discovery/discovery-venue-picker'
+import { Button } from '@pairlens/ui/components/ui/button'
+import { Badge } from '@pairlens/ui/components/ui/badge'
+import { Dialog, DialogContent } from '@pairlens/ui/components/ui/dialog'
+import { AuthModal } from '@/components/auth/auth-modal'
+import { AdminPanel } from '@/components/admin/admin-panel'
+import { CryptoCheckoutModal, SubscriptionPlan } from '@/components/subscription/crypto-checkout-modal'
+import { SupabaseDataService, DbUser } from '@/lib/services/supabase-service'
 
 type DiscoveryTopBarProps = {
   sections: Array<DiscoverySection>
@@ -29,53 +37,130 @@ export function DiscoveryTopBar({
 }: DiscoveryTopBarProps) {
   const { t } = useTranslation()
   const [workspacesOpen, setWorkspacesOpen] = useState(false)
+  const [authOpen, setAuthOpen] = useState(false)
+  const [adminOpen, setAdminOpen] = useState(false)
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [currentUser, setCurrentUser] = useState<DbUser | null>(null)
+
+  useEffect(() => {
+    const user = SupabaseDataService.getCurrentUser()
+    setCurrentUser(user)
+
+    // If user is not logged in, trigger auth modal on startup
+    if (!user) {
+      const timer = setTimeout(() => {
+        setAuthOpen(true)
+      }, 600)
+      return () => clearTimeout(timer)
+    }
+
+    const handleAuthChange = () => {
+      setCurrentUser(SupabaseDataService.getCurrentUser())
+    }
+    window.addEventListener('stac:auth:changed', handleAuthChange)
+    return () => window.removeEventListener('stac:auth:changed', handleAuthChange)
+  }, [])
 
   return (
-    <PageHeader
-      actions={
-        <>
-          <DiscoveryVenuePicker section={activeSection} />
-          <LayoutToolbar
-            open={workspacesOpen}
-            onOpenChange={setWorkspacesOpen}
+    <>
+      <PageHeader
+        actions={
+          <div className="flex items-center gap-2">
+            {currentUser ? (
+              <div className="flex items-center gap-1.5 bg-card/80 border border-border/80 px-2.5 py-1 rounded-md text-xs">
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-mono border-cyan-500/40 text-cyan-400 uppercase py-0 px-1.5 h-4"
+                >
+                  {currentUser.plan || 'Free'}
+                </Badge>
+                <span className="font-mono text-muted-foreground text-[11px] max-w-[120px] truncate">
+                  {currentUser.email}
+                </span>
+                <button
+                  type="button"
+                  title="Logout"
+                  onClick={() => SupabaseDataService.signOut()}
+                  className="text-muted-foreground hover:text-rose-400 ml-1 transition-colors"
+                >
+                  <LogOut className="size-3" />
+                </button>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAuthOpen(true)}
+                className="h-7 text-xs font-mono border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10 gap-1.5 px-2.5 shadow-sm shadow-cyan-500/10"
+              >
+                <UserRound className="size-3.5" /> Sign In / Sign Up
+              </Button>
+            )}
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setCheckoutOpen(true)}
+              className="h-7 text-xs font-mono border-amber-500/40 text-amber-400 hover:bg-amber-500/10 gap-1 px-2.5"
+            >
+              <Sparkles className="size-3" /> VIP
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setAdminOpen(true)}
+              className="h-7 text-xs font-mono border-border/60 hover:text-cyan-400 gap-1 px-2.5"
+            >
+              <Lock className="size-3 text-cyan-400" /> Admin
+            </Button>
+
+            <DiscoveryVenuePicker section={activeSection} />
+            <LayoutToolbar
+              open={workspacesOpen}
+              onOpenChange={setWorkspacesOpen}
+            />
+          </div>
+        }
+      >
+        <h1 aria-label={t('discovery.title')} className="shrink-0 leading-none">
+          <PairlensLogo
+            alt=""
+            width={3264}
+            height={630}
+            className="block h-[17px] w-auto select-none"
           />
-        </>
-      }
-    >
-      {/* Discovery is the front door, so the bar names it with the wordmark
-          rather than the word. Sized to the 13px/600 title it replaces: 17px
-          of image puts the letters on the same optical line as the chips to
-          its right, and the black outline it carries is what lets one asset
-          serve all 18 themes. The mark is 5.18:1, so height is the only
-          dimension worth naming and the intrinsic pair below it has to stay
-          honest: those attributes are the ratio the browser reserves space
-          with before the bytes land, and a stale pair shifts the whole bar
-          on every cold load.
+        </h1>
+        <div className={HEADER_GROUP}>
+          <DiscoverySectionTabs
+            sections={sections}
+            active={activeSection}
+            onSelect={onSelectSection}
+            onReorder={onReorderSections}
+          />
+        </div>
+      </PageHeader>
 
-          The mark is drawn as drawn, spectrum included. A greyscale-until-
-          hover treatment was tried here first and it read as nothing: the
-          only colour in the mark is the underline, which is a few pixels of
-          a 17px image, so desaturating it changed almost nothing you could
-          see and asked for a hover to undo a change nobody noticed.
+      {/* User Auth Modal */}
+      <AuthModal
+        open={authOpen}
+        onOpenChange={setAuthOpen}
+        onSuccess={() => setAuthOpen(false)}
+      />
 
-          The heading keeps its text for screen readers: the mark is the page
-          title visually, "Discovery" is the page title out loud. */}
-      <h1 aria-label={t('discovery.title')} className="shrink-0 leading-none">
-        <PairlensLogo
-          alt=""
-          width={3264}
-          height={630}
-          className="block h-[17px] w-auto select-none"
-        />
-      </h1>
-      <div className={HEADER_GROUP}>
-        <DiscoverySectionTabs
-          sections={sections}
-          active={activeSection}
-          onSelect={onSelectSection}
-          onReorder={onReorderSections}
-        />
-      </div>
-    </PageHeader>
+      {/* Admin Panel Dialog */}
+      <Dialog open={adminOpen} onOpenChange={setAdminOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden bg-background">
+          <AdminPanel onClose={() => setAdminOpen(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* VIP Crypto Checkout Modal */}
+      <CryptoCheckoutModal
+        open={checkoutOpen}
+        onOpenChange={setCheckoutOpen}
+        initialPlan="monthly"
+      />
+    </>
   )
 }

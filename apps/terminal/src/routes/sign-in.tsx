@@ -1,217 +1,236 @@
 // Copyright (c) 2026 Juan Ignacio Molina Estrada
 // SPDX-License-Identifier: FSL-1.1-Apache-2.0
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useState, useEffect } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-
-import { BlocksIcon } from '@pairlens/ui/components/ui/blocks'
-import { LayersIcon } from '@pairlens/ui/components/ui/layers'
-import { WorkflowIcon } from '@pairlens/ui/components/ui/workflow'
-
-import type { SignInPhase } from '@/components/sign-in-experience'
-import { SignInExperience } from '@/components/sign-in-experience'
-import { SignInStatueScene } from '@/components/sign-in-statue'
-import { useOptimisticSession } from '@/lib/session'
-import { useSignInFlow } from '@/hooks/use-sign-in-flow'
+import {
+  TrendingUp,
+  ShieldCheck,
+  Zap,
+  ArrowRight,
+  Mail,
+  Lock,
+  User,
+  Sparkles,
+  CheckCircle2,
+  ChevronLeft,
+} from 'lucide-react'
+import { Button } from '@pairlens/ui/components/ui/button'
+import { Input } from '@pairlens/ui/components/ui/input'
+import { Badge } from '@pairlens/ui/components/ui/badge'
+import { toast } from 'sonner'
+import { SupabaseDataService } from '@/lib/services/supabase-service'
 
 export const Route = createFileRoute('/sign-in')({ component: SignInPage })
 
-// Success splash beat — long enough to land, short enough to not annoy.
-const SPLASH_MS = 1900
-
 function SignInPage() {
-  const { t } = useTranslation()
   const navigate = useNavigate()
-  const { session, isCheckingSession } = useOptimisticSession()
-  const reduceMotion = useReducedMotion() ?? false
-
-  // A fresh sign-in holds the page for a "You're in." beat before entering.
-  const [celebrating, setCelebrating] = useState(false)
-  const splashTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-
-  const flow = useSignInFlow({
-    onSignedIn: () => {
-      setCelebrating(true)
-      splashTimerRef.current = setTimeout(
-        () => void navigate({ to: '/', replace: true }),
-        reduceMotion ? 400 : SPLASH_MS,
-      )
-    },
-  })
-
-  useEffect(() => () => clearTimeout(splashTimerRef.current), [])
+  const [tab, setTab] = useState<'signin' | 'signup'>('signin')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (session && !celebrating) {
+    const user = SupabaseDataService.getCurrentUser()
+    if (user) {
       void navigate({ to: '/', replace: true })
     }
-  }, [navigate, session, celebrating])
+  }, [navigate])
 
-  if (isCheckingSession) {
-    return (
-      <div className="p-6 text-sm text-muted-foreground">
-        {t('signIn.checkingSession')}
-      </div>
-    )
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+
+    try {
+      if (tab === 'signup') {
+        if (!email.trim() || !password.trim()) {
+          throw new Error('Please fill in all required fields.')
+        }
+        if (password.length < 6) {
+          throw new Error('Password must be at least 6 characters.')
+        }
+        const user = await SupabaseDataService.signUp(name, email, password)
+        toast.success(`Welcome ${user.name || user.email}! Account created.`)
+        void navigate({ to: '/', replace: true })
+      } else {
+        if (!email.trim() || !password.trim()) {
+          throw new Error('Please enter email and password.')
+        }
+        const user = await SupabaseDataService.signIn(email, password)
+        toast.success(`Welcome back, ${user.name || user.email}!`)
+        void navigate({ to: '/', replace: true })
+      }
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed. Please check credentials.')
+    } finally {
+      setLoading(false)
+    }
   }
-
-  if (session && !celebrating) {
-    return null
-  }
-
-  const phase: SignInPhase = celebrating
-    ? 'success'
-    : flow.otpSentTo
-      ? 'otp'
-      : 'email'
 
   return (
-    <div className="relative grid min-h-screen lg:grid-cols-2">
-      {/* Left panel — statue scene + benefits. */}
-      <SignInStatueScene className="hidden lg:block">
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center pb-[10%]">
-          <div className="pointer-events-auto px-8">
-            <SignInBenefits />
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6 relative selection:bg-cyan-500/20">
+      <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/5 via-transparent to-blue-600/5 pointer-events-none" />
+
+      <div className="w-full max-w-md relative z-10">
+        <div className="mb-6 flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void navigate({ to: '/' })}
+            className="text-muted-foreground hover:text-foreground text-xs gap-1.5 -ml-2"
+          >
+            <ChevronLeft className="size-4" /> Back to Terminal
+          </Button>
+          <Badge variant="outline" className="font-mono text-[10px] border-cyan-500/40 text-cyan-400">
+            PRO SUITE
+          </Badge>
+        </div>
+
+        <div className="bg-card border border-border/70 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/40">
+          {/* Logo & Header */}
+          <div className="text-center mb-6">
+            <div className="size-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-xl mx-auto shadow-lg shadow-cyan-500/20 mb-3">
+              P
+            </div>
+            <h1 className="text-xl font-bold tracking-tight text-foreground">
+              {tab === 'signin' ? 'Sign In to Pairlens' : 'Create Free Account'}
+            </h1>
+            <p className="text-xs text-muted-foreground mt-1">
+              {tab === 'signin'
+                ? 'Access your institutional charts, signals & VIP trades'
+                : 'Join thousands of active traders with live market edge'}
+            </p>
+          </div>
+
+          {/* Tab Switcher */}
+          <div className="flex bg-muted/60 p-1 rounded-xl mb-6 border border-border/40 text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => {
+                setTab('signin')
+                setError(null)
+              }}
+              className={`flex-1 py-2 rounded-lg transition-all ${
+                tab === 'signin'
+                  ? 'bg-background text-foreground shadow font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTab('signup')
+                setError(null)
+              }}
+              className={`flex-1 py-2 rounded-lg transition-all ${
+                tab === 'signup'
+                  ? 'bg-background text-foreground shadow font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Sign Up
+            </button>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {tab === 'signup' && (
+              <div>
+                <label className="block text-[11px] font-mono text-muted-foreground uppercase mb-1">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Trader Alex"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="pl-9 bg-background/50 h-10 text-sm"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-[11px] font-mono text-muted-foreground uppercase mb-1">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                <Input
+                  type="email"
+                  required
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-9 bg-background/50 h-10 text-sm"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-mono text-muted-foreground uppercase mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                <Input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-9 bg-background/50 h-10 text-sm"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs">
+                {error}
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold h-10 text-sm shadow-lg shadow-cyan-500/20 mt-2"
+            >
+              {loading ? (
+                'Processing...'
+              ) : tab === 'signin' ? (
+                <>Sign In <ArrowRight className="size-4 ml-1.5" /></>
+              ) : (
+                <>Create Account <ArrowRight className="size-4 ml-1.5" /></>
+              )}
+            </Button>
+          </form>
+
+          {/* Perks Footer */}
+          <div className="mt-6 pt-5 border-t border-border/40 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
+              <span>Free Forever Tier</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
+              <span>Realtime Forex & Crypto</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
+              <span>Institutional Feeds</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
+              <span>Instant VIP Upgrades</span>
+            </div>
           </div>
         </div>
-      </SignInStatueScene>
-
-      {/* Right panel — choreographed sign-in experience */}
-      <SignInExperience
-        phase={phase}
-        email={flow.email}
-        otp={flow.otp}
-        otpSentTo={flow.otpSentTo}
-        errorMessage={flow.errorMessage}
-        isSendingOtp={flow.isSendingOtp}
-        isVerifyingOtp={flow.isVerifyingOtp}
-        resendSecondsLeft={flow.resendSecondsLeft}
-        onEmailChange={flow.onEmailChange}
-        onOtpChange={flow.onOtpChange}
-        onSendOtp={flow.onSendOtp}
-        onVerify={flow.onVerify}
-        onBack={flow.onBack}
-        onResend={flow.onResend}
-      />
-
-      {/* Seam blend — melts the statue panel's black into the form side's
-          background color. Lives outside the panel's `dark` scope so the
-          gradient targets the actual (theme-aware) form background. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-48 -translate-x-full bg-gradient-to-r from-transparent to-background lg:block"
-      />
-    </div>
-  )
-}
-
-// ── Benefits story card ─────────────────────────────────────────────────
-// Story-style glass card over the statue panel: segmented progress bars
-// drive an auto-advancing carousel (advance on fill completion, pause on
-// hover, click a segment to jump) in the onboarding design language.
-
-const BENEFITS = [
-  { id: 'cloud', Icon: LayersIcon },
-  { id: 'sync', Icon: WorkflowIcon },
-  { id: 'plugins', Icon: BlocksIcon },
-] as const
-
-const BENEFIT_MS = 5200
-
-function SignInBenefits() {
-  const { t } = useTranslation()
-  const reduceMotion = useReducedMotion() ?? false
-  const [index, setIndex] = useState(0)
-  const [paused, setPaused] = useState(false)
-
-  const advance = useCallback(() => {
-    setIndex((i) => (i + 1) % BENEFITS.length)
-  }, [])
-
-  // Reduced motion: no fill animation to ride on — advance with a timer.
-  useEffect(() => {
-    if (!reduceMotion || paused) return
-    const id = setInterval(advance, BENEFIT_MS)
-    return () => clearInterval(id)
-  }, [reduceMotion, paused, advance])
-
-  const benefit = BENEFITS[index]
-  const Icon = benefit.Icon
-
-  return (
-    <div
-      className="w-[400px] max-w-full rounded-2xl border border-sidebar-foreground/15 bg-sidebar/55 p-5 shadow-[0_24px_60px_-30px_rgba(0,0,0,.65)] backdrop-blur-xl"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-    >
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-sidebar-foreground/60">
-          {t('signIn.benefitsEyebrow')}
-        </span>
-        <span className="font-mono text-[10.5px] tabular-nums text-sidebar-foreground/50">
-          {String(index + 1).padStart(2, '0')} /{' '}
-          {String(BENEFITS.length).padStart(2, '0')}
-        </span>
-      </div>
-
-      <div className="mt-4 min-h-[74px]">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={benefit.id}
-            initial={
-              reduceMotion
-                ? { opacity: 0 }
-                : { opacity: 0, y: 10, filter: 'blur(4px)' }
-            }
-            animate={
-              reduceMotion
-                ? { opacity: 1 }
-                : { opacity: 1, y: 0, filter: 'blur(0px)' }
-            }
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-            className="flex items-start gap-3.5 text-left"
-          >
-            <span className="flex size-10 flex-none items-center justify-center rounded-xl bg-sidebar-foreground/12 text-sidebar-foreground">
-              <Icon size={20} />
-            </span>
-            <div className="min-w-0">
-              <p className="font-serif text-[17px] font-semibold leading-snug">
-                {t(`signIn.benefits.${benefit.id}.title`)}
-              </p>
-              <p className="mt-1 text-[12.5px] leading-[1.5] text-sidebar-foreground/70">
-                {t(`signIn.benefits.${benefit.id}.description`)}
-              </p>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      <div className="mt-4 flex gap-1.5">
-        {BENEFITS.map((b, i) => (
-          <button
-            key={b.id}
-            type="button"
-            aria-label={t(`signIn.benefits.${b.id}.title`)}
-            onClick={() => setIndex(i)}
-            className="h-1 flex-1 cursor-pointer overflow-hidden rounded-full bg-sidebar-foreground/15"
-          >
-            {i < index || (i === index && reduceMotion) ? (
-              <span className="block h-full w-full rounded-full bg-sidebar-foreground/70" />
-            ) : i === index ? (
-              <span
-                key={index}
-                className="block h-full w-full origin-left rounded-full bg-sidebar-foreground/70"
-                style={{
-                  animation: `pl-si-fill ${BENEFIT_MS}ms linear both`,
-                  animationPlayState: paused ? 'paused' : 'running',
-                }}
-                onAnimationEnd={advance}
-              />
-            ) : null}
-          </button>
-        ))}
       </div>
     </div>
   )
