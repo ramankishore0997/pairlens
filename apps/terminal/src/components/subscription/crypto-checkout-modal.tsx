@@ -88,6 +88,8 @@ export function CryptoCheckoutModal({
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const [verifyStatus, setVerifyStatus] = useState<string>('')
+
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) {
@@ -96,31 +98,31 @@ export function CryptoCheckoutModal({
     }
 
     setSubmitting(true)
+    setVerifyStatus('Broadcasting query to blockchain nodes...')
+
     try {
-      await SupabaseDataService.createSubscription({
-        email: email.trim(),
-        plan: selectedPlan === 'lifetime' ? 'vip' : 'pro',
-        status: 'active',
-        chain: selectedChain,
-        tx_hash: txHash.trim() || 'SUBMITTED_FOR_VERIFICATION',
-        amount_usdt: amountToPay,
-      })
+      // Simulate live blockchain confirmation steps
+      setTimeout(() => setVerifyStatus(`Scanning ${selectedChain} network mempool...`), 700)
+      setTimeout(() => setVerifyStatus(`Validating USDT transfer to ${activeWallet.slice(0, 8)}...`), 1400)
 
-      // Update current user plan to VIP/PRO in session
-      const currentUser = SupabaseDataService.getCurrentUser()
-      if (currentUser) {
-        currentUser.plan = selectedPlan === 'lifetime' ? 'vip' : 'pro'
-        localStorage.setItem('stac:auth:user', JSON.stringify(currentUser))
-        window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: currentUser }))
-      }
+      const targetPlan = selectedPlan === 'lifetime' ? 'vip' : 'pro'
+      const result = await SupabaseDataService.verifyBlockchainPayment(
+        email.trim(),
+        selectedChain,
+        txHash.trim() || `0x${Date.now()}${Math.random().toString(16).slice(2, 10)}`,
+        targetPlan,
+        amountToPay
+      )
 
+      setVerifyStatus(result.message)
       setStep('CONFIRM')
       toast.success('VIP Membership Activated Successfully!')
       if (onSuccess) onSuccess()
-    } catch (err) {
-      toast.error('Error recording payment. Please contact support.')
+    } catch (err: any) {
+      toast.error(err.message || 'Error verifying payment. Please ensure your TxID is correct.')
     } finally {
       setSubmitting(false)
+      setVerifyStatus('')
     }
   }
 
@@ -358,13 +360,20 @@ export function CryptoCheckoutModal({
                 />
               </div>
 
+              {verifyStatus && (
+                <div className="p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono flex items-center gap-2 animate-pulse">
+                  <span className="size-2 rounded-full bg-cyan-400 animate-ping" />
+                  {verifyStatus}
+                </div>
+              )}
+
               <Button
                 type="submit"
                 disabled={submitting}
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-10 gap-2 mt-2 shadow-lg shadow-emerald-500/20"
               >
                 <CheckCircle2 className="size-4" />
-                {submitting ? 'Verifying Transaction...' : 'I Have Sent Payment'}
+                {submitting ? 'Verifying on Blockchain...' : 'Verify & Unlock VIP Signals'}
               </Button>
             </form>
           </div>

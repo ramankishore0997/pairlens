@@ -16,6 +16,9 @@ import {
   Layers,
   BarChart2,
   SlidersHorizontal,
+  Lock,
+  Shield,
+  Zap,
 } from 'lucide-react'
 import { Button } from '@pairlens/ui/components/ui/button'
 import { Input } from '@pairlens/ui/components/ui/input'
@@ -53,6 +56,13 @@ export function TradesHub() {
     SupabaseDataService.getCurrentUser()
   )
   const isAdmin = currentUser?.role === 'admin'
+  const isPaidMember = Boolean(
+    currentUser?.role === 'admin' ||
+    currentUser?.plan === 'pro' ||
+    currentUser?.plan === 'vip' ||
+    currentUser?.plan === 'enterprise' ||
+    (typeof window !== 'undefined' && localStorage.getItem('stac:vip:active') === 'true')
+  )
 
   const [trades, setTrades] = useState<Array<TradeSignal>>(() => {
     try {
@@ -338,7 +348,102 @@ export function TradesHub() {
       {/* Main Signal Cards Grid / Content Area */}
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <div className="max-w-7xl mx-auto">
-          {displayedTrades.length === 0 ? (
+          {activeTab === 'ACTIVE' && !isPaidMember ? (
+            /* VIP Locked Gate for Free Members */
+            <div className="relative rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-500/10 via-card/60 to-card/90 p-8 text-center overflow-hidden shadow-2xl backdrop-blur-md">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/15 via-transparent to-transparent pointer-events-none" />
+
+              <div className="relative z-10 max-w-2xl mx-auto flex flex-col items-center">
+                <div className="size-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 mb-4 shadow-lg shadow-amber-500/10 animate-pulse">
+                  <Lock className="size-8" />
+                </div>
+
+                <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-300 font-mono text-xs px-3 py-1 mb-3">
+                  <Sparkles className="size-3 mr-1 text-amber-400" /> VIP INSTITUTIONAL SIGNALS STREAM
+                </Badge>
+
+                <h2 className="text-2xl md:text-3xl font-bold font-mono tracking-tight text-foreground mb-3">
+                  Live Active Signals Locked
+                </h2>
+
+                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+                  Real-time trade signals with exact Entry Prices, Stop Loss levels, and 3 Take-Profit targets are exclusively available to VIP subscribers. Free members have full access to our audited <span className="text-foreground font-semibold">Past Results</span> track record below.
+                </p>
+
+                {/* Value Propositions */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full mb-7 text-left">
+                  <div className="p-3 rounded-xl bg-background/60 border border-border/40 backdrop-blur-xs">
+                    <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-bold mb-1">
+                      <Zap className="size-3.5" /> Instant Delivery
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Sub-second signal delivery on Forex, Gold & Crypto setups.
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-background/60 border border-border/40 backdrop-blur-xs">
+                    <div className="flex items-center gap-2 text-emerald-400 font-mono text-xs font-bold mb-1">
+                      <Target className="size-3.5" /> Precision TP/SL
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Triple target ladders and exact mathematical risk-to-reward.
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-background/60 border border-border/40 backdrop-blur-xs">
+                    <div className="flex items-center gap-2 text-amber-400 font-mono text-xs font-bold mb-1">
+                      <Shield className="size-3.5" /> Auto Blockchain
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Instant USDT confirmation & auto-activated VIP membership.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Call to Actions */}
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                  <Button
+                    size="lg"
+                    onClick={() => setCheckoutModalOpen(true)}
+                    className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold font-mono px-8 shadow-lg shadow-amber-500/25 h-11"
+                  >
+                    <Sparkles className="size-4 mr-2" /> Unlock VIP Live Signals
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => setActiveTab('PAST')}
+                    className="w-full sm:w-auto font-mono text-xs h-11 border-border/60 hover:bg-muted/40"
+                  >
+                    <CheckCircle2 className="size-4 mr-2 text-emerald-400" /> View Free Past Results ({pastTrades.length})
+                  </Button>
+                </div>
+              </div>
+
+              {/* Blurred Teaser Active Cards Preview */}
+              {activeTrades.length > 0 && (
+                <div className="mt-10 pt-8 border-t border-border/20">
+                  <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider mb-4">
+                    {activeTrades.length} Active Positions Currently Running (Encrypted)
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 blur-[5px] opacity-35 pointer-events-none select-none">
+                    {activeTrades.slice(0, 3).map((t) => (
+                      <div key={t.id} className="p-4 rounded-xl border border-border/50 bg-card text-left">
+                        <div className="flex justify-between font-mono font-bold text-sm">
+                          <span>{t.symbol}</span>
+                          <span className={t.type === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>{t.type}</span>
+                        </div>
+                        <div className="mt-2 text-xs font-mono text-muted-foreground">
+                          Entry: •••••• | Target: ••••••
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : displayedTrades.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-border/50 rounded-2xl bg-card/10">
               <div className="size-12 rounded-xl bg-card/60 border border-border/60 flex items-center justify-center text-muted-foreground/50 mb-3">
                 <Target className="size-6" />
