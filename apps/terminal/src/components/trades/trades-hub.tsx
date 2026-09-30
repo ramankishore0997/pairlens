@@ -61,96 +61,7 @@ export type TradeSignal = {
 
 const STORAGE_KEY = 'pairlens:trades.signals'
 
-const DEFAULT_TRADES: Array<TradeSignal> = [
-  {
-    id: 'tr-1',
-    symbol: 'EUR/USD',
-    type: 'BUY',
-    category: 'Forex',
-    entryPrice: 1.0845,
-    stopLoss: 1.0815,
-    target1: 1.089,
-    target2: 1.0935,
-    target3: 1.098,
-    timeframe: '4H',
-    leverage: '1:100',
-    notes: 'Key 4H support bounce with bullish fair value gap fill and London liquidity sweep.',
-    status: 'ACTIVE',
-    createdAt: Date.now() - 3600000 * 4,
-  },
-  {
-    id: 'tr-2',
-    symbol: 'XAU/USD',
-    type: 'BUY',
-    category: 'Commodity',
-    entryPrice: 2650.0,
-    stopLoss: 2635.0,
-    target1: 2675.0,
-    target2: 2700.0,
-    target3: 2725.0,
-    timeframe: '1H',
-    leverage: '1:50',
-    notes: 'Gold breakout above resistance trendline with strong institutional volume.',
-    status: 'ACTIVE',
-    createdAt: Date.now() - 3600000 * 8,
-  },
-  {
-    id: 'tr-3',
-    symbol: 'GBP/JPY',
-    type: 'SELL',
-    category: 'Forex',
-    entryPrice: 194.5,
-    stopLoss: 195.2,
-    target1: 193.6,
-    target2: 192.8,
-    target3: 191.9,
-    timeframe: '1H',
-    leverage: '1:100',
-    notes: 'Double top rejection at psychological 195.00 resistance with bearish divergence.',
-    status: 'ACTIVE',
-    createdAt: Date.now() - 3600000 * 12,
-  },
-  {
-    id: 'tr-4',
-    symbol: 'BTC/USDT',
-    type: 'BUY',
-    category: 'Crypto',
-    entryPrice: 62400.0,
-    stopLoss: 61200.0,
-    target1: 64500.0,
-    target2: 66800.0,
-    target3: 69000.0,
-    timeframe: 'Daily',
-    leverage: '10x',
-    notes: 'Weekly bull flag breakout continuation.',
-    status: 'CLOSED',
-    closeReason: 'TP2',
-    closePrice: 66800.0,
-    pnlPercent: 7.05,
-    createdAt: Date.now() - 86400000 * 3,
-    closedAt: Date.now() - 86400000 * 1,
-  },
-  {
-    id: 'tr-5',
-    symbol: 'USD/JPY',
-    type: 'SELL',
-    category: 'Forex',
-    entryPrice: 153.2,
-    stopLoss: 153.8,
-    target1: 152.4,
-    target2: 151.6,
-    target3: 150.8,
-    timeframe: '4H',
-    leverage: '1:100',
-    notes: 'BoJ policy shift expectations causing strong yen demand.',
-    status: 'CLOSED',
-    closeReason: 'TP3',
-    closePrice: 150.8,
-    pnlPercent: 1.57,
-    createdAt: Date.now() - 86400000 * 5,
-    closedAt: Date.now() - 86400000 * 2,
-  },
-]
+const DEFAULT_TRADES: Array<TradeSignal> = []
 
 export function TradesHub() {
   const [trades, setTrades] = useState<Array<TradeSignal>>(() => {
@@ -158,7 +69,7 @@ export function TradesHub() {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) return JSON.parse(saved)
     } catch {}
-    return DEFAULT_TRADES
+    return []
   })
 
   const [activeTab, setActiveTab] = useState<'ACTIVE' | 'PAST'>('ACTIVE')
@@ -176,7 +87,7 @@ export function TradesHub() {
     const loadFromSupabase = async () => {
       try {
         const dbTrades = await SupabaseDataService.getTrades()
-        if (dbTrades && dbTrades.length > 0) {
+        if (dbTrades) {
           const mapped: Array<TradeSignal> = dbTrades.map((t) => ({
             id: t.id,
             symbol: t.symbol,

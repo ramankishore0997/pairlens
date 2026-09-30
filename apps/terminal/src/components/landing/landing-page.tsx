@@ -23,8 +23,9 @@ import { Button } from '@pairlens/ui/components/ui/button'
 import { Badge } from '@pairlens/ui/components/ui/badge'
 import { CryptoCheckoutModal, SubscriptionPlan } from '@/components/subscription/crypto-checkout-modal'
 import { AdminPanel } from '@/components/admin/admin-panel'
+import { AuthModal } from '@/components/auth/auth-modal'
 import { Dialog, DialogContent } from '@pairlens/ui/components/ui/dialog'
-import { SupabaseDataService, DbTrade, DbSettings } from '@/lib/services/supabase-service'
+import { SupabaseDataService, DbTrade, DbSettings, DbUser } from '@/lib/services/supabase-service'
 
 export function LandingPage({
   onLaunchTerminal,
@@ -32,6 +33,8 @@ export function LandingPage({
   onLaunchTerminal: () => void
 }) {
   const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [authOpen, setAuthOpen] = useState(false)
+  const [currentUser, setCurrentUser] = useState<DbUser | null>(null)
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('monthly')
   const [adminOpen, setAdminOpen] = useState(false)
   const [trades, setTrades] = useState<Array<DbTrade>>([])
@@ -40,6 +43,13 @@ export function LandingPage({
   useEffect(() => {
     SupabaseDataService.getTrades().then((t) => setTrades(t.slice(0, 3)))
     SupabaseDataService.getSettings().then(setSettings)
+    setCurrentUser(SupabaseDataService.getCurrentUser())
+
+    const handleAuthChange = () => {
+      setCurrentUser(SupabaseDataService.getCurrentUser())
+    }
+    window.addEventListener('stac:auth:changed', handleAuthChange)
+    return () => window.removeEventListener('stac:auth:changed', handleAuthChange)
   }, [])
 
   const handleOpenCheckout = (plan: SubscriptionPlan) => {
@@ -88,6 +98,33 @@ export function LandingPage({
           </nav>
 
           <div className="flex items-center gap-2.5">
+            {currentUser ? (
+              <div className="flex items-center gap-2 bg-card/60 border border-border/60 px-2.5 py-1 rounded-lg text-xs">
+                <Badge variant="outline" className="text-[10px] font-mono border-cyan-500/40 text-cyan-400 uppercase">
+                  {currentUser.plan || 'Free'}
+                </Badge>
+                <span className="font-mono text-muted-foreground text-[11px] max-w-[120px] truncate">
+                  {currentUser.email}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => SupabaseDataService.signOut()}
+                  className="text-[10px] text-rose-400 hover:underline ml-1"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAuthOpen(true)}
+                className="h-8 text-xs font-mono border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 gap-1.5"
+              >
+                <Users className="size-3" /> Sign In / Sign Up
+              </Button>
+            )}
+
             <Button
               size="sm"
               variant="outline"
@@ -449,6 +486,15 @@ export function LandingPage({
         onOpenChange={setCheckoutOpen}
         initialPlan={selectedPlan}
         onSuccess={onLaunchTerminal}
+      />
+
+      {/* User Auth Modal */}
+      <AuthModal
+        open={authOpen}
+        onOpenChange={setAuthOpen}
+        onSuccess={() => {
+          setAuthOpen(false)
+        }}
       />
 
       {/* Admin Panel Dialog */}

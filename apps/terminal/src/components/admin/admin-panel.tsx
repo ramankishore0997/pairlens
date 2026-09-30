@@ -130,13 +130,13 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
   // Admin PIN Auth
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const correctPin = settings?.admin_credentials?.pin || '9970'
-    if (pinInput.trim() === correctPin || pinInput.trim() === 'Raman0997') {
+    const correctPin = settings?.admin_credentials?.pin || '09970997'
+    if (pinInput.trim() === correctPin || pinInput.trim() === '09970997') {
       setIsAuthenticated(true)
       sessionStorage.setItem('stac:admin:auth', 'true')
       toast.success('Admin authentication successful')
     } else {
-      toast.error('Invalid PIN code. Try default 9970')
+      toast.error('Invalid PIN code. Try 09970997')
     }
   }
 
@@ -292,14 +292,14 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
           Admin Control Portal
         </h2>
         <p className="text-xs text-muted-foreground mt-1 max-w-sm mb-6">
-          Enter your 4-digit Master PIN to manage trade signals, customer subscriptions, and crypto wallet settings.
+          Enter your 8-digit Master PIN to manage trade signals, customer subscriptions, and crypto wallet settings.
         </p>
 
         <form onSubmit={handlePinSubmit} className="flex flex-col items-center gap-3 w-full max-w-xs">
           <Input
             type="password"
-            maxLength={8}
-            placeholder="Enter Admin PIN (Default: 9970)"
+            maxLength={12}
+            placeholder="Enter Admin PIN (09970997)"
             value={pinInput}
             onChange={(e) => setPinInput(e.target.value)}
             className="text-center text-base tracking-widest font-mono h-11 bg-card/60"
