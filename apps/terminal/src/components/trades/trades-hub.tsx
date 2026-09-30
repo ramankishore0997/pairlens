@@ -33,6 +33,10 @@ import {
   DialogDescription,
 } from '@pairlens/ui/components/ui/dialog'
 import { toast } from 'sonner'
+import { SupabaseDataService, DbTrade } from '@/lib/services/supabase-service'
+import { AdminPanel } from '@/components/admin/admin-panel'
+import { CryptoCheckoutModal } from '@/components/subscription/crypto-checkout-modal'
+
 
 export type TradeSignal = {
   id: string
@@ -163,7 +167,47 @@ export function TradesHub() {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [closeModalOpen, setCloseModalOpen] = useState(false)
   const [apiModalOpen, setApiModalOpen] = useState(false)
+  const [adminModalOpen, setAdminModalOpen] = useState(false)
+  const [checkoutModalOpen, setCheckoutModalOpen] = useState(false)
   const [selectedTrade, setSelectedTrade] = useState<TradeSignal | null>(null)
+
+  // Fetch from Supabase PostgreSQL on mount
+  useEffect(() => {
+    const loadFromSupabase = async () => {
+      try {
+        const dbTrades = await SupabaseDataService.getTrades()
+        if (dbTrades && dbTrades.length > 0) {
+          const mapped: Array<TradeSignal> = dbTrades.map((t) => ({
+            id: t.id,
+            symbol: t.symbol,
+            type: t.type,
+            category: (t.asset_class as any) || 'Forex',
+            entryPrice: Number(t.entry_price),
+            stopLoss: Number(t.sl_price),
+            target1: Number(t.tp1_price),
+            target2: t.tp2_price ? Number(t.tp2_price) : undefined,
+            target3: t.tp3_price ? Number(t.tp3_price) : undefined,
+            timeframe: '4H',
+            leverage: t.leverage ? `1:${t.leverage}` : undefined,
+            notes: t.notes,
+            status: t.status === 'active' ? 'ACTIVE' : 'CLOSED',
+            closeReason: (t.outcome?.toUpperCase() as any) || 'TP1',
+            closePrice: t.current_price ? Number(t.current_price) : undefined,
+            pnlPercent: t.pnl_percent ? Number(t.pnl_percent) : undefined,
+            createdAt: new Date(t.created_at).getTime(),
+            closedAt: t.closed_at ? new Date(t.closed_at).getTime() : undefined,
+          }))
+          setTrades(mapped)
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped))
+        }
+      } catch {}
+    }
+    loadFromSupabase()
+    const handleDbSync = () => loadFromSupabase()
+    window.addEventListener('stac:db:trades:updated', handleDbSync)
+    return () => window.removeEventListener('stac:db:trades:updated', handleDbSync)
+  }, [])
+
 
   // Form states for creating a trade
   const [formData, setFormData] = useState({
@@ -482,11 +526,31 @@ export function TradesHub() {
           <Button
             size="sm"
             variant="outline"
+            onClick={() => setCheckoutModalOpen(true)}
+            className="h-8 gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-bold"
+          >
+            <Sparkles className="size-3.5 text-amber-400" />
+            VIP Crypto Plans
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setAdminModalOpen(true)}
+            className="h-8 gap-1.5 text-xs border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10 font-bold"
+          >
+            <ShieldAlert className="size-3.5 text-cyan-400" />
+            Admin Portal
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
             onClick={() => setApiModalOpen(true)}
             className="h-8 gap-1.5 text-xs"
           >
             <Code2 className="size-3.5" />
-            API / Backend
+            API
           </Button>
 
           <Button
@@ -1038,6 +1102,19 @@ window.stacTrades.closeTrade("tr-1", "TP1");`}
           <DialogFooter>
             <Button onClick={() => setApiModalOpen(false)}>Close</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Crypto Checkout Modal */}
+      <CryptoCheckoutModal
+        open={checkoutModalOpen}
+        onOpenChange={setCheckoutModalOpen}
+      />
+
+      {/* Admin Panel Dialog */}
+      <Dialog open={adminModalOpen} onOpenChange={setAdminModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden bg-background">
+          <AdminPanel onClose={() => setAdminModalOpen(false)} />
         </DialogContent>
       </Dialog>
     </div>

@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as LandingRouteImport } from './routes/landing'
 import { Route as ChartTestRouteImport } from './routes/chart-test'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as TerminalRouteImport } from './routes/_terminal'
 import { Route as TerminalIndexRouteImport } from './routes/_terminal/index'
 import { Route as CheckoutSuccessRouteImport } from './routes/checkout.success'
@@ -36,9 +38,19 @@ const OnboardingRoute = OnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LandingRoute = LandingRouteImport.update({
+  id: '/landing',
+  path: '/landing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChartTestRoute = ChartTestRouteImport.update({
   id: '/chart-test',
   path: '/chart-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TerminalRoute = TerminalRouteImport.update({
@@ -109,7 +121,9 @@ const TerminalClsMarketIdRoute = TerminalClsMarketIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof TerminalIndexRoute
+  '/admin': typeof AdminRoute
   '/chart-test': typeof ChartTestRoute
+  '/landing': typeof LandingRoute
   '/onboarding': typeof OnboardingRoute
   '/sign-in': typeof SignInRoute
   '/accounts': typeof TerminalAccountsRoute
@@ -125,7 +139,9 @@ export interface FileRoutesByFullPath {
   '/$cls/$market/$id': typeof TerminalClsMarketIdRoute
 }
 export interface FileRoutesByTo {
+  '/admin': typeof AdminRoute
   '/chart-test': typeof ChartTestRoute
+  '/landing': typeof LandingRoute
   '/onboarding': typeof OnboardingRoute
   '/sign-in': typeof SignInRoute
   '/accounts': typeof TerminalAccountsRoute
@@ -144,7 +160,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_terminal': typeof TerminalRouteWithChildren
+  '/admin': typeof AdminRoute
   '/chart-test': typeof ChartTestRoute
+  '/landing': typeof LandingRoute
   '/onboarding': typeof OnboardingRoute
   '/sign-in': typeof SignInRoute
   '/_terminal/accounts': typeof TerminalAccountsRoute
@@ -164,7 +182,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/chart-test'
+    | '/landing'
     | '/onboarding'
     | '/sign-in'
     | '/accounts'
@@ -180,7 +200,9 @@ export interface FileRouteTypes {
     | '/$cls/$market/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/admin'
     | '/chart-test'
+    | '/landing'
     | '/onboarding'
     | '/sign-in'
     | '/accounts'
@@ -198,7 +220,9 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_terminal'
+    | '/admin'
     | '/chart-test'
+    | '/landing'
     | '/onboarding'
     | '/sign-in'
     | '/_terminal/accounts'
@@ -217,7 +241,9 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   TerminalRoute: typeof TerminalRouteWithChildren
+  AdminRoute: typeof AdminRoute
   ChartTestRoute: typeof ChartTestRoute
+  LandingRoute: typeof LandingRoute
   OnboardingRoute: typeof OnboardingRoute
   SignInRoute: typeof SignInRoute
   CheckoutSuccessRoute: typeof CheckoutSuccessRoute
@@ -239,11 +265,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/landing': {
+      id: '/landing'
+      path: '/landing'
+      fullPath: '/landing'
+      preLoaderRoute: typeof LandingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chart-test': {
       id: '/chart-test'
       path: '/chart-test'
       fullPath: '/chart-test'
       preLoaderRoute: typeof ChartTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_terminal': {
@@ -374,7 +414,9 @@ const TerminalRouteWithChildren = TerminalRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   TerminalRoute: TerminalRouteWithChildren,
+  AdminRoute: AdminRoute,
   ChartTestRoute: ChartTestRoute,
+  LandingRoute: LandingRoute,
   OnboardingRoute: OnboardingRoute,
   SignInRoute: SignInRoute,
   CheckoutSuccessRoute: CheckoutSuccessRoute,
