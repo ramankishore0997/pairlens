@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -10,12 +10,18 @@ import {
   Activity,
   Search,
   ShieldAlert,
+  ArrowUpRight,
+  ArrowDownRight,
+  Radio,
+  Layers,
+  BarChart2,
+  SlidersHorizontal,
 } from 'lucide-react'
 import { Button } from '@pairlens/ui/components/ui/button'
 import { Input } from '@pairlens/ui/components/ui/input'
 import { Badge } from '@pairlens/ui/components/ui/badge'
 import { Dialog, DialogContent } from '@pairlens/ui/components/ui/dialog'
-import { SupabaseDataService, DbTrade, DbUser } from '@/lib/services/supabase-service'
+import { SupabaseDataService, DbTrade, DbUser, supabase } from '@/lib/services/supabase-service'
 import { AdminPanel } from '@/components/admin/admin-panel'
 import { CryptoCheckoutModal } from '@/components/subscription/crypto-checkout-modal'
 
@@ -61,8 +67,9 @@ export function TradesHub() {
   const [searchQuery, setSearchQuery] = useState('')
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false)
   const [adminModalOpen, setAdminModalOpen] = useState(false)
+  const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date())
 
-  // Listen to auth state
+  // Auth sync
   useEffect(() => {
     const handleAuthChange = () => {
       setCurrentUser(SupabaseDataService.getCurrentUser())
@@ -71,8 +78,8 @@ export function TradesHub() {
     return () => window.removeEventListener('stac:auth:changed', handleAuthChange)
   }, [])
 
-  // Fetch from Supabase PostgreSQL
-  const loadFromSupabase = async () => {
+  // Robust Fetch & Real-time Auto Refresh
+  const loadFromSupabase = useCallback(async () => {
     try {
       const dbTrades = await SupabaseDataService.getTrades()
       if (dbTrades) {
@@ -86,7 +93,7 @@ export function TradesHub() {
           target1: Number(t.tp1_price),
           target2: t.tp2_price ? Number(t.tp2_price) : undefined,
           target3: t.tp3_price ? Number(t.tp3_price) : undefined,
-          timeframe: '4H',
+          timeframe: t.leverage ? `${t.leverage}x` : '4H',
           leverage: t.leverage ? `1:${t.leverage}` : undefined,
           notes: t.notes,
           status: t.status === 'active' ? 'ACTIVE' : 'CLOSED',
@@ -98,20 +105,60 @@ export function TradesHub() {
         }))
         setTrades(mapped)
         localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped))
+        setLastSyncTime(new Date())
       }
     } catch {}
-  }
+  }, [])
 
   useEffect(() => {
     loadFromSupabase()
+
+    // 1. Polling interval every 3 seconds for instant client refresh
+    const pollInterval = setInterval(() => {
+      loadFromSupabase()
+    }, 3000)
+
+    // 2. BroadcastChannel for instant cross-tab / cross-window sync
+    let bc: BroadcastChannel | null = null
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        bc = new BroadcastChannel('pairlens_trades_sync')
+        bc.onmessage = () => {
+          loadFromSupabase()
+        }
+      }
+    } catch {}
+
+    // 3. Window custom event listeners
     const handleDbSync = () => loadFromSupabase()
     window.addEventListener('stac:db:trades:updated', handleDbSync)
     window.addEventListener('stac:trades:updated', handleDbSync)
+    window.addEventListener('storage', handleDbSync)
+
+    // 4. Supabase Realtime channel subscription
+    let channel: any = null
+    try {
+      channel = supabase
+        .channel('public:trades:realtime')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'trades' },
+          () => {
+            loadFromSupabase()
+          }
+        )
+        .subscribe()
+    } catch {}
+
     return () => {
+      clearInterval(pollInterval)
+      if (bc) bc.close()
       window.removeEventListener('stac:db:trades:updated', handleDbSync)
       window.removeEventListener('stac:trades:updated', handleDbSync)
+      window.removeEventListener('storage', handleDbSync)
+      if (channel) supabase.removeChannel(channel)
     }
-  }, [])
+  }, [loadFromSupabase])
 
   // Computed metrics
   const activeTrades = useMemo(() => trades.filter((t) => t.status === 'ACTIVE'), [trades])
@@ -141,303 +188,319 @@ export function TradesHub() {
   }, [activeTab, activeTrades, pastTrades, selectedCategory, searchQuery])
 
   return (
-    <div className="flex flex-col flex-1 h-full min-h-0 bg-background overflow-y-auto px-6 py-4">
-      {/* Top Header & Metrics Banner */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="rounded-xl border border-border/60 bg-card/40 p-4 backdrop-blur-sm shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+    <div className="flex flex-col flex-1 h-full min-h-0 bg-background overflow-hidden selection:bg-cyan-500/20">
+      {/* Top Pulse Strip - Styled exactly matching Pairlens Market Pulse */}
+      <div className="border-b border-border/40 bg-card/20 px-6 py-3 shrink-0">
+        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" />
               Active Signals
-            </span>
-            <Activity className="size-4 text-cyan-400" />
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-xl font-bold font-mono tracking-tight text-foreground">
+                {activeTrades.length}
+              </span>
+              <span className="text-[11px] font-mono text-cyan-400">Live Scanning</span>
+            </div>
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">
-            {activeTrades.length} <span className="text-xs font-normal text-muted-foreground">live</span>
-          </div>
-        </div>
 
-        <div className="rounded-xl border border-border/60 bg-card/40 p-4 backdrop-blur-sm shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+              <CheckCircle2 className="size-3 text-emerald-400" />
               Completed Trades
-            </span>
-            <CheckCircle2 className="size-4 text-emerald-400" />
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-xl font-bold font-mono tracking-tight text-foreground">
+                {pastTrades.length}
+              </span>
+              <span className="text-[11px] font-mono text-muted-foreground">Historical</span>
+            </div>
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-foreground">
-            {pastTrades.length} <span className="text-xs font-normal text-muted-foreground">signals</span>
-          </div>
-        </div>
 
-        <div className="rounded-xl border border-border/60 bg-card/40 p-4 backdrop-blur-sm shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+              <Target className="size-3 text-amber-400" />
               Signal Win Rate
-            </span>
-            <Target className="size-4 text-amber-400" />
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-xl font-bold font-mono tracking-tight text-emerald-400">
+                {winRate}%
+              </span>
+              <span className="text-[11px] font-mono text-emerald-400/80">Validated</span>
+            </div>
           </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-emerald-400">
-            {winRate}%
-          </div>
-        </div>
 
-        <div className="rounded-xl border border-border/60 bg-card/40 p-4 backdrop-blur-sm shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-              Total Cumulative ROI
-            </span>
-            <DollarSign className="size-4 text-emerald-400" />
-          </div>
-          <div
-            className={`mt-2 text-2xl font-bold tracking-tight ${totalReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
-          >
-            {totalReturn >= 0 ? `+${totalReturn.toFixed(2)}%` : `${totalReturn.toFixed(2)}%`}
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+              <DollarSign className="size-3 text-emerald-400" />
+              Cumulative ROI
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span
+                className={`text-xl font-bold font-mono tracking-tight ${totalReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
+              >
+                {totalReturn >= 0 ? `+${totalReturn.toFixed(2)}%` : `${totalReturn.toFixed(2)}%`}
+              </span>
+              <span className="text-[11px] font-mono text-muted-foreground">Track Record</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Action Bar & Controls */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 border-b border-border/60">
-        {/* Tabs: Active vs Past */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/40 border border-border/40">
-          <button
-            type="button"
-            onClick={() => setActiveTab('ACTIVE')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 ${
-              activeTab === 'ACTIVE'
-                ? 'bg-primary text-primary-foreground shadow-sm font-bold'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-            Active Signals ({activeTrades.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('PAST')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'PAST'
-                ? 'bg-primary text-primary-foreground shadow-sm font-bold'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Past Results ({pastTrades.length})
-          </button>
-        </div>
-
-        {/* Filters & VIP */}
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search symbol..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 text-xs w-[150px] bg-card/60"
-            />
+      {/* Action Bar / Controls Header */}
+      <div className="border-b border-border/40 px-6 py-2.5 bg-card/10 shrink-0">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          {/* Segmented Tab Switcher */}
+          <div className="flex items-center gap-1 bg-muted/40 p-0.5 rounded-lg border border-border/40">
+            <button
+              type="button"
+              onClick={() => setActiveTab('ACTIVE')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 font-mono ${
+                activeTab === 'ACTIVE'
+                  ? 'bg-background text-foreground shadow-xs font-semibold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Active Signals ({activeTrades.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('PAST')}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all font-mono ${
+                activeTab === 'PAST'
+                  ? 'bg-background text-foreground shadow-xs font-semibold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Past Results ({pastTrades.length})
+            </button>
           </div>
 
-          <div className="flex items-center gap-1">
-            {['ALL', 'Forex', 'Commodity', 'Crypto'].map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-                  selectedCategory === cat
-                    ? 'bg-accent text-accent-foreground border border-border font-bold'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+          {/* Filters, Search & VIP */}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* Category Filter Chips */}
+            <div className="flex items-center gap-1 bg-muted/20 p-0.5 rounded-md border border-border/30">
+              {['ALL', 'Forex', 'Commodity', 'Crypto'].map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-2.5 py-1 rounded text-[11px] font-mono transition-colors ${
+                    selectedCategory === cat
+                      ? 'bg-accent text-accent-foreground font-bold shadow-2xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setCheckoutModalOpen(true)}
-            className="h-8 gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-bold shadow-sm shadow-amber-500/10"
-          >
-            <Sparkles className="size-3.5 text-amber-400" />
-            VIP Plans
-          </Button>
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search pair..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-7 pl-8 pr-2 text-xs w-[130px] font-mono bg-background/50 border-border/40 rounded-md"
+              />
+            </div>
 
-          {/* Admin Portal Gateway - Only Visible to Authenticated Admin */}
-          {isAdmin && (
+            {/* VIP Upgrade Button */}
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setAdminModalOpen(true)}
-              className="h-8 gap-1.5 text-xs border-cyan-500/60 text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 font-bold"
+              onClick={() => setCheckoutModalOpen(true)}
+              className="h-7 text-xs font-mono border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-bold gap-1 px-2.5 shadow-xs shadow-amber-500/10"
             >
-              <ShieldAlert className="size-3.5 text-cyan-400" />
-              Admin Dashboard
+              <Sparkles className="size-3" /> VIP Signals
             </Button>
-          )}
+
+            {/* Admin Dashboard Entry (Visible only to logged-in Admin) */}
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAdminModalOpen(true)}
+                className="h-7 text-xs font-mono border-cyan-500/60 text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 font-bold gap-1 px-2.5 shadow-xs"
+              >
+                <ShieldAlert className="size-3" /> Post & Manage
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Trades Grid View */}
-      <div className="mt-6 flex-1">
-        {displayedTrades.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-border/60 rounded-2xl bg-card/20">
-            <Target className="size-12 text-muted-foreground/30 mb-3" />
-            <h3 className="text-base font-semibold text-foreground">
-              {activeTab === 'ACTIVE' ? 'No Active Signals Right Now' : 'No Past Signals Record'}
-            </h3>
-            <p className="text-xs text-muted-foreground max-w-md mt-1 mb-2">
-              {activeTab === 'ACTIVE'
-                ? 'Institutional trade signals with Entry, Stop Loss, and 3 Target Levels will be published here in real-time by the Lead Analyst.'
-                : 'Closed trade results with final ROI and PnL percentage will appear here once active trades reach their targets.'}
-            </p>
-            <div className="flex items-center gap-1.5 text-[11px] text-cyan-400 font-mono mt-2">
-              <span className="size-2 rounded-full bg-cyan-400 animate-ping" />
-              Live Scanner Active
+      {/* Main Signal Cards Grid / Content Area */}
+      <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="max-w-7xl mx-auto">
+          {displayedTrades.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-border/50 rounded-2xl bg-card/10">
+              <div className="size-12 rounded-xl bg-card/60 border border-border/60 flex items-center justify-center text-muted-foreground/50 mb-3">
+                <Target className="size-6" />
+              </div>
+              <h3 className="text-sm font-semibold text-foreground tracking-tight">
+                {activeTab === 'ACTIVE' ? 'No Active Signals Available' : 'No Past Results Recorded'}
+              </h3>
+              <p className="text-xs text-muted-foreground max-w-sm mt-1 mb-3">
+                {activeTab === 'ACTIVE'
+                  ? 'Real-time trade signals with Entry, Stop Loss, and 3 Target Levels will populate here automatically as soon as published by the lead desk.'
+                  : 'Closed trades with audited PnL will appear here once active positions conclude.'}
+              </p>
+              <div className="flex items-center gap-1.5 text-[11px] text-cyan-400 font-mono bg-cyan-500/5 px-2.5 py-1 rounded-full border border-cyan-500/20">
+                <span className="size-1.5 rounded-full bg-cyan-400 animate-ping" />
+                Live Feed Connected (Auto-Updating)
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {displayedTrades.map((trade) => {
-              const isBuy = trade.type === 'BUY'
-              const rr = (
-                Math.abs(trade.target1 - trade.entryPrice) /
-                Math.max(0.0001, Math.abs(trade.entryPrice - trade.stopLoss))
-              ).toFixed(2)
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {displayedTrades.map((trade) => {
+                const isBuy = trade.type === 'BUY'
+                const rr = (
+                  Math.abs(trade.target1 - trade.entryPrice) /
+                  Math.max(0.00001, Math.abs(trade.entryPrice - trade.stopLoss))
+                ).toFixed(2)
 
-              return (
-                <div
-                  key={trade.id}
-                  className="flex flex-col justify-between rounded-xl border border-border/70 bg-card/60 p-4.5 hover:border-primary/40 transition-all shadow-sm"
-                >
-                  <div>
-                    {/* Card Header */}
-                    <div className="flex items-center justify-between pb-3 border-b border-border/40">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-black uppercase tracking-wider ${
-                            isBuy
-                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                              : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
-                          }`}
-                        >
-                          {isBuy ? (
-                            <TrendingUp className="size-3" />
-                          ) : (
-                            <TrendingDown className="size-3" />
+                return (
+                  <div
+                    key={trade.id}
+                    className="flex flex-col justify-between rounded-xl border border-border/50 bg-card/40 hover:bg-card/70 hover:border-border/80 transition-all p-4.5 shadow-2xs backdrop-blur-xs group"
+                  >
+                    <div>
+                      {/* Card Header */}
+                      <div className="flex items-center justify-between pb-3 border-b border-border/30">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-mono font-black uppercase tracking-wider ${
+                              isBuy
+                                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                            }`}
+                          >
+                            {isBuy ? (
+                              <ArrowUpRight className="size-3" />
+                            ) : (
+                              <ArrowDownRight className="size-3" />
+                            )}
+                            {trade.type}
+                          </span>
+                          <span className="font-bold text-base font-mono tracking-tight text-foreground">
+                            {trade.symbol}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-xs font-mono">
+                          <span className="text-[10px] text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded border border-border/30">
+                            {trade.category}
+                          </span>
+                          {trade.leverage && (
+                            <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/30">
+                              {trade.leverage}
+                            </span>
                           )}
-                          {trade.type}
-                        </span>
-                        <span className="font-bold text-base tracking-tight text-foreground font-mono">
-                          {trade.symbol}
-                        </span>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-xs font-mono">
-                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                          {trade.category}
-                        </Badge>
-                        {trade.leverage && (
-                          <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/30">
-                            {trade.leverage}
-                          </Badge>
+                      {/* Trade Parameters Grid */}
+                      <div className="grid grid-cols-3 gap-2 my-3.5 p-2.5 rounded-lg bg-background/60 border border-border/30 text-xs font-mono text-center">
+                        <div>
+                          <span className="text-[9.5px] text-muted-foreground uppercase tracking-wider block mb-0.5">
+                            Entry Price
+                          </span>
+                          <span className="font-bold text-foreground tabular-nums">{trade.entryPrice}</span>
+                        </div>
+
+                        <div>
+                          <span className="text-[9.5px] text-rose-400/90 uppercase tracking-wider block mb-0.5">
+                            Stop Loss
+                          </span>
+                          <span className="font-semibold text-rose-400 tabular-nums">{trade.stopLoss}</span>
+                        </div>
+
+                        <div>
+                          <span className="text-[9.5px] text-muted-foreground uppercase tracking-wider block mb-0.5">
+                            Risk : Reward
+                          </span>
+                          <span className="font-semibold text-cyan-400 tabular-nums">1 : {rr}</span>
+                        </div>
+                      </div>
+
+                      {/* Take Profit Target Ladder */}
+                      <div className="space-y-1.5 my-3 text-xs font-mono">
+                        <div className="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-emerald-500/5 border border-emerald-500/20">
+                          <span className="text-emerald-400/90 font-medium text-[11px] flex items-center gap-1">
+                            <span className="size-1 rounded-full bg-emerald-400" /> Target 1 (TP1)
+                          </span>
+                          <span className="font-bold text-emerald-400 tabular-nums">{trade.target1}</span>
+                        </div>
+                        {trade.target2 && (
+                          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-emerald-500/5 border border-emerald-500/20">
+                            <span className="text-emerald-400/80 font-medium text-[11px] flex items-center gap-1">
+                              <span className="size-1 rounded-full bg-emerald-400" /> Target 2 (TP2)
+                            </span>
+                            <span className="font-bold text-emerald-400/90 tabular-nums">{trade.target2}</span>
+                          </div>
+                        )}
+                        {trade.target3 && (
+                          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-emerald-500/5 border border-emerald-500/20">
+                            <span className="text-emerald-400/70 font-medium text-[11px] flex items-center gap-1">
+                              <span className="size-1 rounded-full bg-emerald-400" /> Target 3 (TP3)
+                            </span>
+                            <span className="font-bold text-emerald-400/80 tabular-nums">{trade.target3}</span>
+                          </div>
                         )}
                       </div>
-                    </div>
 
-                    {/* Trade Parameters */}
-                    <div className="grid grid-cols-3 gap-2 my-3.5 p-2.5 rounded-lg bg-background/50 border border-border/40 text-xs font-mono text-center">
-                      <div>
-                        <span className="text-[10px] text-muted-foreground uppercase block mb-0.5">
-                          Entry Price
-                        </span>
-                        <span className="font-bold text-foreground">{trade.entryPrice}</span>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] text-rose-400 uppercase block mb-0.5">
-                          Stop Loss
-                        </span>
-                        <span className="font-semibold text-rose-400">{trade.stopLoss}</span>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] text-muted-foreground uppercase block mb-0.5">
-                          Risk : Reward
-                        </span>
-                        <span className="font-semibold text-cyan-400">1 : {rr}</span>
-                      </div>
-                    </div>
-
-                    {/* Take Profit Targets */}
-                    <div className="space-y-1.5 my-3 text-xs font-mono">
-                      <div className="flex items-center justify-between px-2.5 py-1.5 rounded bg-emerald-500/5 border border-emerald-500/20">
-                        <span className="text-emerald-400 font-medium text-[11px]">Target 1 (TP1)</span>
-                        <span className="font-bold text-emerald-400">{trade.target1}</span>
-                      </div>
-                      {trade.target2 && (
-                        <div className="flex items-center justify-between px-2.5 py-1.5 rounded bg-emerald-500/5 border border-emerald-500/20">
-                          <span className="text-emerald-400/90 font-medium text-[11px]">Target 2 (TP2)</span>
-                          <span className="font-bold text-emerald-400/90">{trade.target2}</span>
-                        </div>
-                      )}
-                      {trade.target3 && (
-                        <div className="flex items-center justify-between px-2.5 py-1.5 rounded bg-emerald-500/5 border border-emerald-500/20">
-                          <span className="text-emerald-400/80 font-medium text-[11px]">Target 3 (TP3)</span>
-                          <span className="font-bold text-emerald-400/80">{trade.target3}</span>
+                      {/* Analyst Notes / Strategy */}
+                      {trade.notes && (
+                        <div className="mt-3 text-xs text-muted-foreground border-l-2 border-cyan-500/40 pl-2.5 py-0.5 italic line-clamp-2">
+                          "{trade.notes}"
                         </div>
                       )}
                     </div>
 
-                    {/* Notes */}
-                    {trade.notes && (
-                      <p className="text-xs text-muted-foreground bg-muted/20 p-2.5 rounded-md italic line-clamp-2 mt-2">
-                        "{trade.notes}"
-                      </p>
-                    )}
-                  </div>
+                    {/* Card Footer */}
+                    <div className="mt-4 pt-3 border-t border-border/30 flex items-center justify-between text-xs font-mono">
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Clock className="size-3" />
+                        {new Date(trade.createdAt).toLocaleDateString([], {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
 
-                  {/* Card Footer */}
-                  <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between">
-                    <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-mono">
-                      <Clock className="size-3" />
-                      {new Date(trade.createdAt).toLocaleDateString([], {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-
-                    {trade.status === 'ACTIVE' ? (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] font-mono border-cyan-500/40 text-cyan-400 bg-cyan-500/10 flex items-center gap-1.5"
-                      >
-                        <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" /> Live Tracking
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className={`font-mono text-xs font-bold ${
-                          (trade.pnlPercent ?? 0) >= 0
-                            ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10'
-                            : 'text-rose-400 border-rose-500/40 bg-rose-500/10'
-                        }`}
-                      >
-                        {trade.closeReason ?? 'CLOSED'} ·{' '}
-                        {(trade.pnlPercent ?? 0) >= 0
-                          ? `+${trade.pnlPercent}%`
-                          : `${trade.pnlPercent}%`}
-                      </Badge>
-                    )}
+                      {trade.status === 'ACTIVE' ? (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/30">
+                          <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                          Live Tracking
+                        </span>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center gap-1 font-mono text-xs font-bold px-2 py-0.5 rounded ${
+                            (trade.pnlPercent ?? 0) >= 0
+                              ? 'text-emerald-400 border border-emerald-500/30 bg-emerald-500/10'
+                              : 'text-rose-400 border border-rose-500/30 bg-rose-500/10'
+                          }`}
+                        >
+                          {trade.closeReason ?? 'CLOSED'} ·{' '}
+                          {(trade.pnlPercent ?? 0) >= 0
+                            ? `+${trade.pnlPercent}%`
+                            : `${trade.pnlPercent}%`}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Crypto Checkout Modal */}
@@ -447,7 +510,7 @@ export function TradesHub() {
         initialPlan="monthly"
       />
 
-      {/* Admin Panel Dialog (Accessible only if Admin) */}
+      {/* Admin Panel Dialog (Only reachable by Admin) */}
       {isAdmin && (
         <Dialog open={adminModalOpen} onOpenChange={setAdminModalOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden bg-background">
