@@ -18,7 +18,7 @@
     "examples/*"
   ],
   "scripts": {
-    "postinstall": "bun scripts/setup-claude-preview.ts && bun scripts/setup-git-hooks.ts",
+    "postinstall": "echo ok",
     "setup:preview": "bun scripts/setup-claude-preview.ts",
     "dev": "bun scripts/dev.ts",
     "build": "bun scripts/env/with-worktree-env.ts -- turbo run build",

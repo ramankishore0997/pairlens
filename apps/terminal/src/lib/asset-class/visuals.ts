@@ -125,6 +125,16 @@ export const ASSET_CLASS_VISUALS: Readonly<
     border: 'border-asset-prediction/30',
     activeBg: 'bg-asset-prediction/15',
   },
+  trades: {
+    labelKey: 'assetClass.trades',
+    nameKey: 'discovery.sections.trades',
+    descriptionKey: 'assetClass.tradesDescription',
+    icon: 'Radio',
+    text: 'text-amber-400',
+    bg: 'bg-amber-500/12',
+    border: 'border-amber-500/30',
+    activeBg: 'bg-amber-500/15',
+  },
 }
 
 export function assetClassVisual(cls: InstrumentClass): AssetClassVisual {

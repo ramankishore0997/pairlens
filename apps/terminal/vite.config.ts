@@ -269,7 +269,7 @@ const config = defineConfig({
     // `new URL('./indicator.worker.js', import.meta.url)`, which breaks when the
     // package is prebundled into .vite/deps (the worker URL 404s and indicator
     // computation stalls silently).
-    exclude: ['@tauri-apps/plugin-keychain', '@pairlens/fast-financial-charts'],
+    exclude: ['@tauri-apps/plugin-keychain', '@pairlens/fast-financial-charts', 'viem', 'ox'],
   },
   ssr: {
     noExternal: ['better-auth', /^@pairlens\//],

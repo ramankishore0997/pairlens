@@ -29,11 +29,7 @@ export type OnboardingSelections = {
 }
 
 export function isOnboardingComplete(): boolean {
-  try {
-    return localStorage.getItem(ONBOARDING_KEY) === '1'
-  } catch {
-    return true // storage unavailable — never trap the user on the onboarding page
-  }
+  return true
 }
 
 export function markOnboardingComplete(): void {

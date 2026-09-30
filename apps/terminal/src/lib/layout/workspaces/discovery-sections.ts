@@ -95,6 +95,12 @@ export const DISCOVERY_SECTIONS: ReadonlyArray<DiscoverySection> = [
     icon: 'Gem',
     templateId: NFT_DISCOVERY_TEMPLATE_ID,
   },
+  {
+    id: 'trades',
+    labelKey: 'discovery.sections.trades',
+    icon: 'Radio',
+    templateId: null,
+  },
 ]
 
 /** The section a fresh install opens on. */

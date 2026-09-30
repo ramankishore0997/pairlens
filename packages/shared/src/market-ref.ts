@@ -46,6 +46,7 @@ export type InstrumentClass =
   | 'stocks'
   | 'prediction'
   | 'nft'
+  | 'trades'
 
 export const INSTRUMENT_CLASSES: ReadonlyArray<InstrumentClass> = [
   'spot',
@@ -55,6 +56,7 @@ export const INSTRUMENT_CLASSES: ReadonlyArray<InstrumentClass> = [
   'stocks',
   'prediction',
   'nft',
+  'trades',
 ]
 
 /**
@@ -113,6 +115,8 @@ const CLASS_ALIASES: Readonly<Record<string, InstrumentClass>> = {
   stocks: 'stocks',
   prediction: 'prediction',
   nft: 'nft',
+  trades: 'trades',
+  signals: 'trades',
   // AssetClass, as connectors declare it
   'crypto-spot': 'spot',
   'crypto-perp': 'perp',

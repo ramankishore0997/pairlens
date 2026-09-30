@@ -20,6 +20,7 @@ import { DiscoveryAssistantSurface } from '@/components/discovery/discovery-assi
 import { DiscoveryTopBar } from '@/components/discovery/discovery-top-bar'
 import { EquitiesConnectDialog } from '@/components/equities/equities-connect-dialog'
 import { LayoutShell } from '@/components/layout/layout-shell'
+import { TradesHub } from '@/components/trades/trades-hub'
 import { useMarketInstruments } from '@/hooks/use-market-instruments'
 import { useDiscoverySections } from '@/hooks/use-discovery-sections'
 import { usePersistedState } from '@/hooks/use-persisted-state'
@@ -207,7 +208,7 @@ function DiscoveryBoard() {
               onSelectSection={selectSection}
               onReorderSections={reorder}
             />
-            <LayoutShell />
+            {active === 'trades' ? <TradesHub /> : <LayoutShell />}
           </main>
         </LayoutProvider>
       </WorkspaceProvider>

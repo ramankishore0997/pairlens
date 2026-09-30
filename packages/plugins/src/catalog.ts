@@ -285,8 +285,52 @@ const QUOTE_CURRENCIES = ['USDT', 'USDC', 'EUR', 'USD', 'BTC', 'ETH'] as const
 
 const RANK_OFFSET = BASE_ASSETS.length + 10 // gap between quote tiers
 
+type ForexAsset = {
+  symbol: string
+  name: string
+  base: string
+  quote: string
+  featured?: boolean
+}
+
+const FOREX_ASSETS: Array<ForexAsset> = [
+  { symbol: 'EUR-USD', name: 'EUR/USD · Euro / US Dollar', base: 'EUR', quote: 'USD', featured: true },
+  { symbol: 'GBP-USD', name: 'GBP/USD · British Pound / US Dollar', base: 'GBP', quote: 'USD', featured: true },
+  { symbol: 'USD-JPY', name: 'USD/JPY · US Dollar / Japanese Yen', base: 'USD', quote: 'JPY', featured: true },
+  { symbol: 'AUD-USD', name: 'AUD/USD · Australian Dollar / US Dollar', base: 'AUD', quote: 'USD', featured: true },
+  { symbol: 'USD-CAD', name: 'USD/CAD · US Dollar / Canadian Dollar', base: 'USD', quote: 'CAD', featured: true },
+  { symbol: 'USD-CHF', name: 'USD/CHF · US Dollar / Swiss Franc', base: 'USD', quote: 'CHF', featured: true },
+  { symbol: 'NZD-USD', name: 'NZD/USD · New Zealand Dollar / US Dollar', base: 'NZD', quote: 'USD' },
+  { symbol: 'EUR-GBP', name: 'EUR/GBP · Euro / British Pound', base: 'EUR', quote: 'GBP' },
+  { symbol: 'EUR-JPY', name: 'EUR/JPY · Euro / Japanese Yen', base: 'EUR', quote: 'JPY' },
+  { symbol: 'GBP-JPY', name: 'GBP/JPY · British Pound / Japanese Yen', base: 'GBP', quote: 'JPY' },
+  { symbol: 'XAU-USD', name: 'XAU/USD · Gold Spot / US Dollar', base: 'XAU', quote: 'USD', featured: true },
+  { symbol: 'XAG-USD', name: 'XAG/USD · Silver Spot / US Dollar', base: 'XAG', quote: 'USD', featured: true },
+  { symbol: 'BTC-USD', name: 'BTC/USD · Bitcoin / US Dollar', base: 'BTC', quote: 'USD', featured: true },
+  { symbol: 'ETH-USD', name: 'ETH/USD · Ethereum / US Dollar', base: 'ETH', quote: 'USD', featured: true },
+  { symbol: 'SOL-USD', name: 'SOL/USD · Solana / US Dollar', base: 'SOL', quote: 'USD', featured: true },
+]
+
 function generateCatalog(): Array<Instrument> {
   const instruments: Array<Instrument> = []
+
+  for (let i = 0; i < FOREX_ASSETS.length; i++) {
+    const fx = FOREX_ASSETS[i]
+    instruments.push({
+      id: fx.symbol,
+      kind: 'cex-pair',
+      market: '',
+      symbol: fx.symbol,
+      name: fx.name,
+      base: fx.base,
+      quote: fx.quote,
+      assetClass: 'crypto',
+      categories: ['forex', 'layer1'],
+      rank: i + 1,
+      featured: fx.featured ?? true,
+    })
+  }
+
   for (let qi = 0; qi < QUOTE_CURRENCIES.length; qi++) {
     const quote = QUOTE_CURRENCIES[qi]
     for (const asset of BASE_ASSETS) {
@@ -303,7 +347,7 @@ function generateCatalog(): Array<Instrument> {
         quote,
         assetClass: 'crypto',
         categories: asset.categories,
-        rank: asset.rank + qi * RANK_OFFSET,
+        rank: FOREX_ASSETS.length + asset.rank + qi * RANK_OFFSET,
         featured: qi === 0 && (asset.featured ?? false),
       })
     }
@@ -312,7 +356,7 @@ function generateCatalog(): Array<Instrument> {
   // Stocks rank after all crypto quote tiers so the mixed view is stable.
   // The symbol is the bare ticker — same key the App Server catalog serves, so
   // a watchlist saved online still resolves when this fallback takes over.
-  const stockRankBase = QUOTE_CURRENCIES.length * RANK_OFFSET
+  const stockRankBase = FOREX_ASSETS.length + QUOTE_CURRENCIES.length * RANK_OFFSET
   for (let i = 0; i < STOCK_ASSETS.length; i++) {
     const stock = STOCK_ASSETS[i]
     const symbol = stock.symbol

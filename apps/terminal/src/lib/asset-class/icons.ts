@@ -11,8 +11,10 @@ import {
   Bitcoin,
   Dog,
   Flame,
+  Gem,
   Layers,
   LayoutGrid,
+  Radio,
   TrendingUp,
   Vote,
 } from 'lucide-react'
@@ -28,6 +30,8 @@ const BY_NAME: Record<string, LucideIcon> = {
   Dog,
   TrendingUp,
   Vote,
+  Gem,
+  Radio,
 }
 
 export function assetClassIcon(cls: InstrumentClass): LucideIcon {

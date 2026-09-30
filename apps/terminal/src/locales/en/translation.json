@@ -2810,7 +2810,8 @@
       "moveLeft": "Move left",
       "moveRight": "Move right",
       "nft": "NFTs",
-      "memecoin": "Memecoins"
+      "memecoin": "Memecoins",
+      "trades": "Trades"
     }
   },
   "assetClass": {
@@ -2821,6 +2822,8 @@
     "prediction": "EVENT",
     "binary": "Binary",
     "multiOutcome": "Multi-outcome",
+    "trades": "TRADES",
+    "tradesDescription": "Live trade signals, entry levels, take profit targets, and closed trade history.",
     "spotDescription": "Buy the asset itself on an exchange. What you buy is yours, and it settles the moment it fills.",
     "perpDescription": "A leveraged contract on the price, with no expiry date. Longs and shorts pay each other funding to keep it near spot.",
     "dexDescription": "A swap against a liquidity pool, signed by your own wallet. The chain it happens on is part of what you are trading.",

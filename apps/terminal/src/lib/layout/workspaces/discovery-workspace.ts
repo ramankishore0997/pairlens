@@ -47,6 +47,7 @@ const DEFAULT_BOARDS: Record<InstrumentClass, TerminalLayout> = {
   stocks: EQUITIES_DISCOVERY_LAYOUT,
   prediction: PREDICTION_DISCOVERY_LAYOUT,
   nft: NFT_DISCOVERY_LAYOUT,
+  trades: DISCOVERY_HOME,
 }
 
 export function discoveryStorageKeyFor(cls: InstrumentClass): string {
