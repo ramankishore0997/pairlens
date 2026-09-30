@@ -33,10 +33,9 @@ import {
   DialogDescription,
 } from '@pairlens/ui/components/ui/dialog'
 import { toast } from 'sonner'
-import { SupabaseDataService, DbTrade } from '@/lib/services/supabase-service'
+import { SupabaseDataService, DbTrade, DbUser } from '@/lib/services/supabase-service'
 import { AdminPanel } from '@/components/admin/admin-panel'
 import { CryptoCheckoutModal } from '@/components/subscription/crypto-checkout-modal'
-
 
 export type TradeSignal = {
   id: string
@@ -64,6 +63,9 @@ const STORAGE_KEY = 'pairlens:trades.signals'
 const DEFAULT_TRADES: Array<TradeSignal> = []
 
 export function TradesHub() {
+  const [currentUser, setCurrentUser] = useState<DbUser | null>(() => SupabaseDataService.getCurrentUser())
+  const isAdmin = currentUser?.role === 'admin'
+
   const [trades, setTrades] = useState<Array<TradeSignal>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
@@ -81,6 +83,14 @@ export function TradesHub() {
   const [adminModalOpen, setAdminModalOpen] = useState(false)
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false)
   const [selectedTrade, setSelectedTrade] = useState<TradeSignal | null>(null)
+
+  useEffect(() => {
+    const handleAuthChange = () => {
+      setCurrentUser(SupabaseDataService.getCurrentUser())
+    }
+    window.addEventListener('stac:auth:changed', handleAuthChange)
+    return () => window.removeEventListener('stac:auth:changed', handleAuthChange)
+  }, [])
 
   // Fetch from Supabase PostgreSQL on mount
   useEffect(() => {
@@ -438,40 +448,45 @@ export function TradesHub() {
             size="sm"
             variant="outline"
             onClick={() => setCheckoutModalOpen(true)}
-            className="h-8 gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-bold"
+            className="h-8 gap-1.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-bold shadow-sm shadow-amber-500/10"
           >
             <Sparkles className="size-3.5 text-amber-400" />
-            VIP Crypto Plans
+            VIP Plans
           </Button>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setAdminModalOpen(true)}
-            className="h-8 gap-1.5 text-xs border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10 font-bold"
-          >
-            <ShieldAlert className="size-3.5 text-cyan-400" />
-            Admin Portal
-          </Button>
+          {/* Admin Exclusive Controls */}
+          {isAdmin && (
+            <div className="flex items-center gap-1.5 border-l border-border/60 pl-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAdminModalOpen(true)}
+                className="h-8 gap-1.5 text-xs border-cyan-500/60 text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 font-bold"
+              >
+                <ShieldAlert className="size-3.5 text-cyan-400" />
+                Admin Dashboard
+              </Button>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setApiModalOpen(true)}
-            className="h-8 gap-1.5 text-xs"
-          >
-            <Code2 className="size-3.5" />
-            API
-          </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setApiModalOpen(true)}
+                className="h-8 gap-1.5 text-xs font-mono"
+              >
+                <Code2 className="size-3.5" />
+                API
+              </Button>
 
-          <Button
-            size="sm"
-            onClick={() => setCreateModalOpen(true)}
-            className="h-8 gap-1.5 text-xs bg-cyan-600 hover:bg-cyan-500 text-white font-semibold"
-          >
-            <Plus className="size-3.5" />
-            Post Trade
-          </Button>
+              <Button
+                size="sm"
+                onClick={() => setCreateModalOpen(true)}
+                className="h-8 gap-1.5 text-xs bg-cyan-600 hover:bg-cyan-500 text-white font-semibold shadow-md shadow-cyan-500/20"
+              >
+                <Plus className="size-3.5" />
+                Post Trade
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -606,27 +621,36 @@ export function TradesHub() {
                     </span>
 
                     {trade.status === 'ACTIVE' ? (
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          size="sm"
+                      isAdmin ? (
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedTrade(trade)
+                              setCloseModalOpen(true)
+                            }}
+                            className="h-7 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 font-semibold"
+                          >
+                            Mark as Closed
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteTrade(trade.id)}
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-400"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Badge
                           variant="outline"
-                          onClick={() => {
-                            setSelectedTrade(trade)
-                            setCloseModalOpen(true)
-                          }}
-                          className="h-7 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 font-semibold"
+                          className="text-[10px] font-mono border-cyan-500/40 text-cyan-400 bg-cyan-500/10 flex items-center gap-1"
                         >
-                          Mark as Closed
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteTrade(trade.id)}
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-400"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
+                          <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" /> Live Tracking
+                        </Badge>
+                      )
                     ) : (
                       <div className="flex items-center gap-2">
                         <Badge
@@ -642,14 +666,16 @@ export function TradesHub() {
                             ? `+${trade.pnlPercent}%`
                             : `${trade.pnlPercent}%`}
                         </Badge>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteTrade(trade.id)}
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-400"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteTrade(trade.id)}
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-400"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>

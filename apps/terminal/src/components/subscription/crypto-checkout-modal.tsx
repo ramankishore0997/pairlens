@@ -12,6 +12,9 @@ import {
   QrCode,
   DollarSign,
   Lock,
+  ChevronLeft,
+  Flame,
+  Star,
 } from 'lucide-react'
 import { Button } from '@pairlens/ui/components/ui/button'
 import { Input } from '@pairlens/ui/components/ui/input'
@@ -53,6 +56,10 @@ export function CryptoCheckoutModal({
 
   useEffect(() => {
     SupabaseDataService.getSettings().then(setSettings)
+    const currentUser = SupabaseDataService.getCurrentUser()
+    if (currentUser?.email) {
+      setEmail(currentUser.email)
+    }
   }, [open])
 
   useEffect(() => {
@@ -93,19 +100,22 @@ export function CryptoCheckoutModal({
       await SupabaseDataService.createSubscription({
         email: email.trim(),
         plan: selectedPlan === 'lifetime' ? 'vip' : 'pro',
-        status: 'active', // Auto activate or pending
+        status: 'active',
         chain: selectedChain,
         tx_hash: txHash.trim() || 'SUBMITTED_FOR_VERIFICATION',
         amount_usdt: amountToPay,
       })
 
-      // Store local session VIP access
-      localStorage.setItem('stac:vip:active', 'true')
-      localStorage.setItem('stac:vip:email', email.trim())
-      window.dispatchEvent(new CustomEvent('stac:vip:activated', { detail: { email, plan: selectedPlan } }))
+      // Update current user plan to VIP/PRO in session
+      const currentUser = SupabaseDataService.getCurrentUser()
+      if (currentUser) {
+        currentUser.plan = selectedPlan === 'lifetime' ? 'vip' : 'pro'
+        localStorage.setItem('stac:auth:user', JSON.stringify(currentUser))
+        window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: currentUser }))
+      }
 
       setStep('CONFIRM')
-      toast.success('Subscription activated! Welcome to VIP Terminal.')
+      toast.success('VIP Membership Activated Successfully!')
       if (onSuccess) onSuccess()
     } catch (err) {
       toast.error('Error recording payment. Please contact support.')
@@ -116,23 +126,24 @@ export function CryptoCheckoutModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-6 bg-card border-border/80">
+      <DialogContent className="max-w-lg p-6 bg-card border-border/80 shadow-2xl shadow-black/80 rounded-2xl">
         {step === 'SELECT' && (
           <div>
-            <DialogHeader className="mb-4">
-              <div className="size-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-2">
-                <Sparkles className="size-5" />
+            <DialogHeader className="mb-4 text-center">
+              <div className="size-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-black text-xl mx-auto shadow-lg shadow-amber-500/20 mb-2">
+                <Sparkles className="size-6" />
               </div>
-              <DialogTitle className="text-xl font-bold tracking-tight">
-                Unlock VIP Signals & Pro Terminal
+              <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
+                VIP Signals & Institutional Edge
               </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                Get real-time Forex & Crypto institutional signals with entry, SL and 3 target levels.
+              <DialogDescription className="text-xs text-muted-foreground max-w-sm mx-auto">
+                Get real-time Forex, Commodities & Crypto trade signals with precise Entry, Stop Loss, and 3 Target Levels.
               </DialogDescription>
             </DialogHeader>
 
             {/* Plan Cards */}
-            <div className="space-y-2.5 mb-5">
+            <div className="space-y-3 mb-5">
+              {/* Monthly */}
               <div
                 onClick={() => setSelectedPlan('monthly')}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
@@ -146,15 +157,16 @@ export function CryptoCheckoutModal({
                     Pro Monthly
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    Live Signals + Charts + Instant Alerts
+                    Live Signals + Automated TP/SL Tracking
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="font-mono text-lg font-bold text-cyan-400">${planPrices.monthly}</div>
-                  <div className="text-[10px] text-muted-foreground">USDT / month</div>
+                  <div className="text-[10px] text-muted-foreground font-mono">USDT / Month</div>
                 </div>
               </div>
 
+              {/* Yearly */}
               <div
                 onClick={() => setSelectedPlan('yearly')}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
@@ -165,46 +177,70 @@ export function CryptoCheckoutModal({
               >
                 <div>
                   <div className="font-bold text-sm text-foreground flex items-center gap-2">
-                    Pro Yearly <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400">Save 45%</Badge>
+                    Pro Yearly <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 font-mono">SAVE 45%</Badge>
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    12 Months Full Pro Access + Priority Support
+                    12 Months VIP Access + Priority Feeds
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="font-mono text-lg font-bold text-emerald-400">${planPrices.yearly}</div>
-                  <div className="text-[10px] text-muted-foreground">USDT / year</div>
+                  <div className="text-[10px] text-muted-foreground font-mono">USDT / Year</div>
                 </div>
               </div>
 
+              {/* Lifetime */}
               <div
                 onClick={() => setSelectedPlan('lifetime')}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between relative overflow-hidden ${
                   selectedPlan === 'lifetime'
-                    ? 'border-amber-500 bg-amber-500/10 shadow-sm shadow-amber-500/10'
+                    ? 'border-amber-500 bg-amber-500/10 shadow-sm shadow-amber-500/10 ring-1 ring-amber-500/30'
                     : 'border-border/60 hover:border-border bg-background/50'
                 }`}
               >
+                <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-amber-600 text-black text-[9px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-wider">
+                  Most Popular
+                </div>
                 <div>
                   <div className="font-bold text-sm text-foreground flex items-center gap-2">
-                    VIP Lifetime <Badge className="text-[9px] bg-amber-500/20 text-amber-400">BEST VALUE</Badge>
+                    VIP Lifetime <Flame className="size-3.5 text-amber-400 fill-amber-400" />
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    One-time payment · Never pay again
+                    Lifetime Access · Unlimited Signals · Never Pay Again
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right pt-2">
                   <div className="font-mono text-lg font-bold text-amber-400">${planPrices.lifetime}</div>
-                  <div className="text-[10px] text-muted-foreground">USDT One-Time</div>
+                  <div className="text-[10px] text-muted-foreground font-mono">USDT One-Time</div>
                 </div>
+              </div>
+            </div>
+
+            {/* Feature Perks */}
+            <div className="grid grid-cols-2 gap-2 mb-5 p-3 rounded-xl bg-muted/40 border border-border/40 text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
+                <span>Entry, SL & 3 TP Targets</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
+                <span>Forex, Gold & Crypto</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
+                <span>Instant Push Alerts</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
+                <span>Institutional Risk Ratio</span>
               </div>
             </div>
 
             <Button
               onClick={() => setStep('PAY')}
-              className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold h-10 gap-2 shadow-lg shadow-cyan-500/15"
+              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold h-11 gap-2 shadow-lg shadow-amber-500/20"
             >
-              Pay ${amountToPay} USDT with Crypto <ArrowRight className="size-4" />
+              Pay ${amountToPay} USDT via Crypto <ArrowRight className="size-4" />
             </Button>
           </div>
         )}
@@ -213,57 +249,61 @@ export function CryptoCheckoutModal({
           <div>
             <DialogHeader className="mb-4">
               <div className="flex items-center justify-between">
-                <Badge variant="outline" className="font-mono text-[10px] text-cyan-400 border-cyan-500/30">
-                  Step 2: Send Payment
-                </Badge>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setStep('SELECT')}
-                  className="text-xs text-muted-foreground hover:text-foreground"
+                  className="text-xs text-muted-foreground hover:text-foreground h-7 gap-1 px-2"
                 >
-                  ← Change Plan
-                </button>
+                  <ChevronLeft className="size-3.5" /> Back to Plans
+                </Button>
+                <Badge variant="outline" className="font-mono text-[10px] text-cyan-400 border-cyan-500/30">
+                  Step 2 of 2
+                </Badge>
               </div>
-              <DialogTitle className="text-lg font-bold">
-                Send <strong className="text-cyan-400">${amountToPay} USDT</strong>
+              <DialogTitle className="text-lg font-bold mt-2">
+                Send <strong className="text-amber-400 font-mono">${amountToPay} USDT</strong>
               </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Select your preferred blockchain network and send exact USDT amount.
+              </DialogDescription>
             </DialogHeader>
 
             {/* Select Network */}
             <div className="mb-4">
-              <label className="text-xs font-mono text-muted-foreground mb-1.5 block">
-                Select Crypto Network:
+              <label className="text-[11px] font-mono text-muted-foreground mb-1.5 block uppercase">
+                Select Network:
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedChain('TRC20')}
-                  className={`py-2 px-3 rounded-lg border text-xs font-bold transition-all text-center ${
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
                     selectedChain === 'TRC20'
-                      ? 'border-cyan-500 bg-cyan-500/15 text-cyan-400'
-                      : 'border-border text-muted-foreground hover:text-foreground'
+                      ? 'border-cyan-500 bg-cyan-500/15 text-cyan-400 shadow-sm shadow-cyan-500/10'
+                      : 'border-border/60 text-muted-foreground hover:text-foreground bg-background/50'
                   }`}
                 >
-                  USDT (TRC20)
+                  TRC-20 (Tron)
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedChain('ERC20')}
-                  className={`py-2 px-3 rounded-lg border text-xs font-bold transition-all text-center ${
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
                     selectedChain === 'ERC20'
-                      ? 'border-cyan-500 bg-cyan-500/15 text-cyan-400'
-                      : 'border-border text-muted-foreground hover:text-foreground'
+                      ? 'border-cyan-500 bg-cyan-500/15 text-cyan-400 shadow-sm shadow-cyan-500/10'
+                      : 'border-border/60 text-muted-foreground hover:text-foreground bg-background/50'
                   }`}
                 >
-                  USDT (ERC20)
+                  ERC-20 (ETH)
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedChain('SOL')}
-                  className={`py-2 px-3 rounded-lg border text-xs font-bold transition-all text-center ${
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
                     selectedChain === 'SOL'
-                      ? 'border-cyan-500 bg-cyan-500/15 text-cyan-400'
-                      : 'border-border text-muted-foreground hover:text-foreground'
+                      ? 'border-cyan-500 bg-cyan-500/15 text-cyan-400 shadow-sm shadow-cyan-500/10'
+                      : 'border-border/60 text-muted-foreground hover:text-foreground bg-background/50'
                   }`}
                 >
                   Solana (SOL)
@@ -272,19 +312,20 @@ export function CryptoCheckoutModal({
             </div>
 
             {/* Wallet Address Box */}
-            <div className="rounded-xl border border-border bg-background/80 p-3.5 mb-4 space-y-2">
+            <div className="rounded-xl border border-border/80 bg-background/80 p-3.5 mb-4 space-y-2">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Receiving Address ({selectedChain}):</span>
-                <button
-                  type="button"
+                <span className="font-mono text-[11px]">USDT Deposit Address ({selectedChain}):</span>
+                <Button
+                  size="sm"
+                  variant="outline"
                   onClick={handleCopy}
-                  className="text-cyan-400 hover:underline flex items-center gap-1 font-mono font-bold"
+                  className="h-6 text-[10px] text-cyan-400 border-cyan-500/30 gap-1 px-2 font-mono"
                 >
-                  {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-                  {copied ? 'Copied' : 'Copy'}
-                </button>
+                  {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
+                  {copied ? 'Copied!' : 'Copy Address'}
+                </Button>
               </div>
-              <div className="p-2.5 rounded bg-muted/40 font-mono text-[11px] break-all border border-border/60 text-foreground font-semibold">
+              <div className="p-2.5 rounded-lg bg-muted/60 font-mono text-[11px] break-all border border-border/60 text-foreground font-semibold select-all">
                 {activeWallet}
               </div>
             </div>
@@ -292,59 +333,59 @@ export function CryptoCheckoutModal({
             {/* Submission Form */}
             <form onSubmit={handlePaymentSubmit} className="space-y-3">
               <div>
-                <label className="text-xs font-medium text-foreground mb-1 block">
-                  Your Email (for VIP account activation) *
+                <label className="text-[11px] font-mono text-muted-foreground uppercase mb-1 block">
+                  Your Registered Email *
                 </label>
                 <Input
                   type="email"
-                  placeholder="alex@gmail.com"
+                  placeholder="trader@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="text-xs"
+                  className="text-xs h-9 bg-background/50"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  Transaction Hash / TxID (Optional or paste after sending)
+                <label className="text-[11px] font-mono text-muted-foreground uppercase mb-1 block">
+                  Transaction Hash / TxID (Optional)
                 </label>
                 <Input
-                  placeholder="e.g. 0x8f3c... or TRC20 TXID"
+                  placeholder="0x... or Tron Tx Hash"
                   value={txHash}
                   onChange={(e) => setTxHash(e.target.value)}
-                  className="font-mono text-xs"
+                  className="font-mono text-xs h-9 bg-background/50"
                 />
               </div>
 
               <Button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-10 gap-2 mt-2"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-10 gap-2 mt-2 shadow-lg shadow-emerald-500/20"
               >
                 <CheckCircle2 className="size-4" />
-                {submitting ? 'Verifying...' : 'I Have Completed Payment'}
+                {submitting ? 'Verifying Transaction...' : 'I Have Sent Payment'}
               </Button>
             </form>
           </div>
         )}
 
         {step === 'CONFIRM' && (
-          <div className="text-center py-4 space-y-4">
-            <div className="size-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto">
+          <div className="text-center py-6 space-y-4">
+            <div className="size-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto shadow-lg shadow-emerald-500/20">
               <CheckCircle2 className="size-8" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-foreground">Welcome to VIP Access!</h3>
-              <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-                Your subscription has been recorded in our Supabase PostgreSQL database. All live signals and VIP features are now unlocked.
+              <h3 className="text-xl font-bold text-foreground">VIP Access Activated!</h3>
+              <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">
+                Your payment request has been synced with the Supabase database. You now have full institutional signal access and VIP badge unlocked.
               </p>
             </div>
             <Button
               onClick={() => onOpenChange(false)}
-              className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold h-10"
+              className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold h-10 shadow-lg shadow-cyan-500/20"
             >
-              Open Trading Terminal
+              Continue to Terminal
             </Button>
           </div>
         )}

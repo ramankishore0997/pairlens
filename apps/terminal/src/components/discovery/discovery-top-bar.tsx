@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-Apache-2.0
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Lock, Sparkles, UserRound, LogOut } from 'lucide-react'
+import { Lock, Sparkles, UserRound, LogOut, ShieldCheck } from 'lucide-react'
 
 import type {
   DiscoverySection,
@@ -46,7 +46,7 @@ export function DiscoveryTopBar({
     const user = SupabaseDataService.getCurrentUser()
     setCurrentUser(user)
 
-    // If user is not logged in, trigger auth modal on startup
+    // Prompt sign in on first visit if not logged in
     if (!user) {
       const timer = setTimeout(() => {
         setAuthOpen(true)
@@ -60,6 +60,8 @@ export function DiscoveryTopBar({
     window.addEventListener('stac:auth:changed', handleAuthChange)
     return () => window.removeEventListener('stac:auth:changed', handleAuthChange)
   }, [])
+
+  const isAdmin = currentUser?.role === 'admin'
 
   return (
     <>
@@ -97,23 +99,27 @@ export function DiscoveryTopBar({
               </Button>
             )}
 
+            {/* VIP Upgrade Button */}
             <Button
               size="sm"
               variant="outline"
               onClick={() => setCheckoutOpen(true)}
-              className="h-7 text-xs font-mono border-amber-500/40 text-amber-400 hover:bg-amber-500/10 gap-1 px-2.5"
+              className="h-7 text-xs font-mono border-amber-500/40 text-amber-400 hover:bg-amber-500/10 gap-1 px-2.5 font-bold shadow-sm shadow-amber-500/10"
             >
               <Sparkles className="size-3" /> VIP
             </Button>
 
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setAdminOpen(true)}
-              className="h-7 text-xs font-mono border-border/60 hover:text-cyan-400 gap-1 px-2.5"
-            >
-              <Lock className="size-3 text-cyan-400" /> Admin
-            </Button>
+            {/* Admin Portal Button - ONLY VISIBLE TO AUTHENTICATED ADMINS */}
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAdminOpen(true)}
+                className="h-7 text-xs font-mono border-cyan-500/60 text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 gap-1 px-2.5 font-bold animate-pulse"
+              >
+                <ShieldCheck className="size-3.5 text-cyan-300" /> Admin Portal
+              </Button>
+            )}
 
             <DiscoveryVenuePicker section={activeSection} />
             <LayoutToolbar
@@ -148,12 +154,14 @@ export function DiscoveryTopBar({
         onSuccess={() => setAuthOpen(false)}
       />
 
-      {/* Admin Panel Dialog */}
-      <Dialog open={adminOpen} onOpenChange={setAdminOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden bg-background">
-          <AdminPanel onClose={() => setAdminOpen(false)} />
-        </DialogContent>
-      </Dialog>
+      {/* Admin Panel Dialog (Only renders when Admin clicks) */}
+      {isAdmin && (
+        <Dialog open={adminOpen} onOpenChange={setAdminOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden bg-background">
+            <AdminPanel onClose={() => setAdminOpen(false)} />
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* VIP Crypto Checkout Modal */}
       <CryptoCheckoutModal
