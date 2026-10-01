@@ -78,6 +78,46 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
   const [closeOutcome, setCloseOutcome] = useState<DbTrade['outcome']>('tp1')
   const [customExitPrice, setCustomExitPrice] = useState('')
 
+  // Edit Trade state
+  const [editTradeOpen, setEditTradeOpen] = useState(false)
+  const [editTradeForm, setEditTradeForm] = useState<{
+    id: string
+    symbol: string
+    type: 'BUY' | 'SELL'
+    asset_class: string
+    entry_price: string
+    sl_price: string
+    tp1_price: string
+    tp2_price: string
+    tp3_price: string
+    current_price: string
+    pnl_percent: string
+    pips: string
+    leverage: string
+    notes: string
+    chart_image_url: string
+    status: 'active' | 'closed'
+    outcome: DbTrade['outcome']
+  }>({
+    id: '',
+    symbol: '',
+    type: 'BUY',
+    asset_class: 'Forex',
+    entry_price: '',
+    sl_price: '',
+    tp1_price: '',
+    tp2_price: '',
+    tp3_price: '',
+    current_price: '',
+    pnl_percent: '',
+    pips: '',
+    leverage: '50',
+    notes: '',
+    chart_image_url: '',
+    status: 'active',
+    outcome: 'open',
+  })
+
   // Customer form state
   const [addCustomerOpen, setAddCustomerOpen] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
@@ -207,6 +247,73 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     await SupabaseDataService.deleteTrade(id)
     toast.info('Trade deleted from database')
     loadData()
+  }
+
+  // Open Edit Trade
+  const handleOpenEditTrade = (trade: DbTrade) => {
+    setEditTradeForm({
+      id: trade.id,
+      symbol: trade.symbol,
+      type: trade.type,
+      asset_class: trade.asset_class || 'Forex',
+      entry_price: trade.entry_price ? String(trade.entry_price) : '',
+      sl_price: trade.sl_price ? String(trade.sl_price) : '',
+      tp1_price: trade.tp1_price ? String(trade.tp1_price) : '',
+      tp2_price: trade.tp2_price ? String(trade.tp2_price) : '',
+      tp3_price: trade.tp3_price ? String(trade.tp3_price) : '',
+      current_price: trade.current_price ? String(trade.current_price) : '',
+      pnl_percent: trade.pnl_percent !== undefined ? String(trade.pnl_percent) : '',
+      pips: trade.pips !== undefined ? String(trade.pips) : '',
+      leverage: trade.leverage ? String(trade.leverage) : '50',
+      notes: trade.notes || '',
+      chart_image_url: trade.chart_image_url || '',
+      status: trade.status,
+      outcome: trade.outcome || (trade.status === 'active' ? 'open' : 'tp1'),
+    })
+    setEditTradeOpen(true)
+  }
+
+  // Submit Edit Trade
+  const handleEditTradeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (
+      !editTradeForm.id ||
+      !editTradeForm.symbol ||
+      !editTradeForm.entry_price ||
+      !editTradeForm.sl_price ||
+      !editTradeForm.tp1_price
+    ) {
+      toast.error('Please fill required fields (Symbol, Entry, SL, TP1)')
+      return
+    }
+
+    try {
+      const updates: Partial<DbTrade> = {
+        symbol: editTradeForm.symbol.toUpperCase().trim(),
+        type: editTradeForm.type,
+        asset_class: editTradeForm.asset_class,
+        entry_price: parseFloat(editTradeForm.entry_price),
+        sl_price: parseFloat(editTradeForm.sl_price),
+        tp1_price: parseFloat(editTradeForm.tp1_price),
+        tp2_price: editTradeForm.tp2_price ? parseFloat(editTradeForm.tp2_price) : undefined,
+        tp3_price: editTradeForm.tp3_price ? parseFloat(editTradeForm.tp3_price) : undefined,
+        current_price: editTradeForm.current_price ? parseFloat(editTradeForm.current_price) : undefined,
+        pnl_percent: editTradeForm.pnl_percent !== '' ? parseFloat(editTradeForm.pnl_percent) : undefined,
+        pips: editTradeForm.pips !== '' ? parseInt(editTradeForm.pips, 10) : undefined,
+        leverage: editTradeForm.leverage ? parseFloat(editTradeForm.leverage) : 1,
+        notes: editTradeForm.notes.trim() || undefined,
+        chart_image_url: editTradeForm.chart_image_url.trim() || undefined,
+        status: editTradeForm.status,
+        outcome: editTradeForm.outcome,
+      }
+
+      await SupabaseDataService.updateTrade(editTradeForm.id, updates)
+      toast.success(`Trade ${editTradeForm.symbol} updated successfully!`)
+      setEditTradeOpen(false)
+      loadData()
+    } catch {
+      toast.error('Failed to update trade')
+    }
   }
 
   // Handle Add Customer
@@ -523,14 +630,25 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                           </Button>
                         </div>
 
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteTrade(trade.id)}
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-400"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenEditTrade(trade)}
+                            className="h-6 text-[10px] px-2 border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10 gap-1 font-bold"
+                            title="Edit Signal, Prices & Screenshot"
+                          >
+                            <Edit className="size-3" /> Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteTrade(trade.id)}
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-400"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )
@@ -584,7 +702,16 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                       <td className="p-3 text-muted-foreground">
                         {t.closed_at ? new Date(t.closed_at).toLocaleDateString() : 'Recent'}
                       </td>
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-right space-x-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleOpenEditTrade(t)}
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-cyan-400"
+                          title="Edit Trade, Prices, PnL & Screenshot"
+                        >
+                          <Edit className="size-3" />
+                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"
@@ -1061,6 +1188,315 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
               Confirm & Move to Past Trades
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* EDIT TRADE / PHOTO & PRICES DIALOG */}
+      <Dialog open={editTradeOpen} onOpenChange={setEditTradeOpen}>
+        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto bg-card border-border/80">
+          <DialogHeader>
+            <div className="flex items-center justify-between pb-2 border-b border-border/40">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className={
+                    editTradeForm.type === 'BUY'
+                      ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10'
+                      : 'border-rose-500/50 text-rose-400 bg-rose-500/10'
+                  }
+                >
+                  {editTradeForm.type}
+                </Badge>
+                <span className="font-mono text-base font-bold text-foreground">{editTradeForm.symbol || 'Edit Trade'}</span>
+              </div>
+              <Badge variant="outline" className="font-mono text-[10px] text-cyan-400 border-cyan-500/30">
+                Admin Editor
+              </Badge>
+            </div>
+            <DialogTitle className="text-base font-bold mt-2 flex items-center gap-2">
+              <Edit className="size-4 text-cyan-400" /> Edit Trade Details, Prices & Screenshot Proof
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Modify entry/SL/TP levels, PnL %, strategy notes, or upload/change the chart screenshot. All changes sync live immediately.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditTradeSubmit} className="space-y-3.5 py-2 font-mono text-xs">
+            {/* Symbol, Direction & Status */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Symbol *</label>
+                <Input
+                  placeholder="e.g. EUR/USD, XAU/USD, BTC"
+                  value={editTradeForm.symbol}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, symbol: e.target.value })}
+                  className="font-bold text-foreground"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Direction</label>
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditTradeForm({ ...editTradeForm, type: 'BUY' })}
+                    className={`py-2 rounded-lg text-xs font-bold border transition-all ${
+                      editTradeForm.type === 'BUY'
+                        ? 'bg-emerald-500 text-white border-emerald-500'
+                        : 'border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    BUY
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditTradeForm({ ...editTradeForm, type: 'SELL' })}
+                    className={`py-2 rounded-lg text-xs font-bold border transition-all ${
+                      editTradeForm.type === 'SELL'
+                        ? 'bg-rose-500 text-white border-rose-500'
+                        : 'border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    SELL
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Trade Lifecycle Status</label>
+                <select
+                  value={editTradeForm.status}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, status: e.target.value as any })}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs"
+                >
+                  <option value="active">🟢 Active (Live Signal)</option>
+                  <option value="closed">🏁 Closed (Past Track Record)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Category & Leverage */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Category</label>
+                <select
+                  value={editTradeForm.asset_class}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, asset_class: e.target.value })}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs"
+                >
+                  <option value="Forex">Forex</option>
+                  <option value="Commodity">Gold / Commodity</option>
+                  <option value="Crypto">Crypto</option>
+                  <option value="Indices">Indices</option>
+                  <option value="Stocks">Stocks</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Leverage</label>
+                <Input
+                  placeholder="50"
+                  value={editTradeForm.leverage}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, leverage: e.target.value })}
+                  className="text-xs"
+                />
+              </div>
+
+              <div className="col-span-2 sm:col-span-1">
+                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Outcome / Trigger</label>
+                <select
+                  value={editTradeForm.outcome}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, outcome: e.target.value as any })}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs"
+                >
+                  <option value="open">Open (Active)</option>
+                  <option value="tp1">Target 1 Hit (TP1)</option>
+                  <option value="tp2">Target 2 Hit (TP2)</option>
+                  <option value="tp3">Target 3 Hit (TP3)</option>
+                  <option value="sl">Stop Loss Hit (SL)</option>
+                  <option value="manual">Manual Exit</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Price Levels: Entry, SL, TP1 */}
+            <div className="grid grid-cols-3 gap-3 p-3 rounded-xl bg-background/60 border border-border/40">
+              <div>
+                <label className="text-[11px] font-medium text-cyan-400 mb-1 block">Entry Price *</label>
+                <Input
+                  type="number"
+                  step="any"
+                  value={editTradeForm.entry_price}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, entry_price: e.target.value })}
+                  className="font-bold text-cyan-400"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-medium text-rose-400 mb-1 block">Stop Loss (SL) *</label>
+                <Input
+                  type="number"
+                  step="any"
+                  value={editTradeForm.sl_price}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, sl_price: e.target.value })}
+                  className="font-bold text-rose-400"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-medium text-emerald-400 mb-1 block">Target 1 (TP1) *</label>
+                <Input
+                  type="number"
+                  step="any"
+                  value={editTradeForm.tp1_price}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, tp1_price: e.target.value })}
+                  className="font-bold text-emerald-400"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Target 2, Target 3 & Exit Price */}
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Target 2 (TP2)</label>
+                <Input
+                  type="number"
+                  step="any"
+                  placeholder="Optional"
+                  value={editTradeForm.tp2_price}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, tp2_price: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Target 3 (TP3)</label>
+                <Input
+                  type="number"
+                  step="any"
+                  placeholder="Optional"
+                  value={editTradeForm.tp3_price}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, tp3_price: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Exit / Current Price</label>
+                <Input
+                  type="number"
+                  step="any"
+                  placeholder="e.g. Close Price"
+                  value={editTradeForm.current_price}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, current_price: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* PnL % and Pips */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">P&L Percent (%)</label>
+                <Input
+                  type="number"
+                  step="any"
+                  placeholder="e.g. 34.5 or -12.0"
+                  value={editTradeForm.pnl_percent}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, pnl_percent: e.target.value })}
+                  className="text-emerald-400 font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Pips Gain / Loss</label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 84 or -35"
+                  value={editTradeForm.pips}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, pips: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Strategy / Notes */}
+            <div>
+              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Analysis & Strategy Notes</label>
+              <Input
+                placeholder="e.g. 4H break and retest of key institutional resistance"
+                value={editTradeForm.notes}
+                onChange={(e) => setEditTradeForm({ ...editTradeForm, notes: e.target.value })}
+              />
+            </div>
+
+            {/* Screenshot URL & Live Preview */}
+            <div className="p-3 rounded-xl bg-background/80 border border-border/50 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-cyan-400 flex items-center gap-1.5">
+                  📸 Trade Setup Chart Screenshot (Image URL / Link)
+                </label>
+                {editTradeForm.chart_image_url && (
+                  <button
+                    type="button"
+                    onClick={() => setEditTradeForm({ ...editTradeForm, chart_image_url: '' })}
+                    className="text-[10px] text-rose-400 hover:underline"
+                  >
+                    Clear Image
+                  </button>
+                )}
+              </div>
+
+              <Input
+                placeholder="Paste Image Link: https://i.imgur.com/... or TradingView snapshot link"
+                value={editTradeForm.chart_image_url}
+                onChange={(e) => setEditTradeForm({ ...editTradeForm, chart_image_url: e.target.value })}
+                className="text-xs"
+              />
+
+              {editTradeForm.chart_image_url && editTradeForm.chart_image_url.trim().length > 5 ? (
+                <div className="mt-2 rounded-lg border border-border/60 overflow-hidden bg-black/60 p-2 flex items-center justify-between gap-3">
+                  <div className="h-16 w-28 rounded overflow-hidden bg-black flex items-center justify-center shrink-0 border border-white/10">
+                    <img
+                      src={editTradeForm.chart_image_url}
+                      alt="Preview"
+                      className="h-full w-full object-contain"
+                      onError={(e) => {
+                        ;(e.target as HTMLElement).style.display = 'none'
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1 text-[10px] text-muted-foreground space-y-1">
+                    <span className="text-emerald-400 font-bold block">✓ Custom Screenshot Attached</span>
+                    <p className="truncate max-w-[280px]">{editTradeForm.chart_image_url}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => window.open(editTradeForm.chart_image_url, '_blank')}
+                    className="h-7 text-[10px] gap-1 px-2 border-cyan-500/30 text-cyan-400 shrink-0"
+                  >
+                    <ExternalLink className="size-3" /> Test
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-[10.5px] text-muted-foreground italic">
+                  💡 Leave blank if you want the system to automatically generate the dynamic candlestick level snapshot.
+                </p>
+              )}
+            </div>
+
+            <DialogFooter className="pt-3">
+              <Button type="button" variant="ghost" onClick={() => setEditTradeOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold font-mono">
+                <Check className="size-4 mr-1" /> Save All Changes (Sync Live)
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
