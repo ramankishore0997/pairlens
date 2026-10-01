@@ -60,8 +60,7 @@ export function TradesHub() {
     currentUser?.role === 'admin' ||
     currentUser?.plan === 'pro' ||
     currentUser?.plan === 'vip' ||
-    currentUser?.plan === 'enterprise' ||
-    (typeof window !== 'undefined' && localStorage.getItem('stac:vip:active') === 'true')
+    currentUser?.plan === 'enterprise'
   )
 
   const [trades, setTrades] = useState<Array<TradeSignal>>(() => {
@@ -79,11 +78,15 @@ export function TradesHub() {
   const [adminModalOpen, setAdminModalOpen] = useState(false)
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date())
 
-  // Auth sync
+  // Auth & DB subscription synchronization
   useEffect(() => {
     const handleAuthChange = () => {
       setCurrentUser(SupabaseDataService.getCurrentUser())
     }
+
+    // Sync from database on mount to verify actual active subscription
+    void SupabaseDataService.syncUserSubscription()
+
     window.addEventListener('stac:auth:changed', handleAuthChange)
     return () => window.removeEventListener('stac:auth:changed', handleAuthChange)
   }, [])

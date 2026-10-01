@@ -101,8 +101,8 @@ export const SupabaseDataService = {
       id: `usr_${Date.now()}`,
       name: name.trim() || cleanEmail.split('@')[0],
       email: cleanEmail,
-      role: cleanEmail.includes('admin') ? 'admin' : 'user',
-      plan: 'free',
+      role: 'user', // Strictly 'user' - admin role requires Master PIN authentication
+      plan: 'free', // All new accounts start on free plan
       created_at: new Date().toISOString(),
     }
 
@@ -126,6 +126,7 @@ export const SupabaseDataService = {
 
     // Set current active session
     localStorage.setItem(USER_SESSION_KEY, JSON.stringify(newUser))
+    localStorage.removeItem('stac:vip:active')
     window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: newUser }))
     return newUser
   },
@@ -151,6 +152,8 @@ export const SupabaseDataService = {
         }
         localStorage.setItem(USER_SESSION_KEY, JSON.stringify(user))
         window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: user }))
+        // Also sync subscription verification from DB
+        void this.syncUserSubscription(cleanEmail)
         return user
       }
     } catch {}
@@ -161,6 +164,7 @@ export const SupabaseDataService = {
     if (found) {
       localStorage.setItem(USER_SESSION_KEY, JSON.stringify(found))
       window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: found }))
+      void this.syncUserSubscription(cleanEmail)
       return found
     }
 
@@ -174,8 +178,57 @@ export const SupabaseDataService = {
       created_at: new Date().toISOString(),
     }
     localStorage.setItem(USER_SESSION_KEY, JSON.stringify(fallbackUser))
+    localStorage.removeItem('stac:vip:active')
     window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: fallbackUser }))
     return fallbackUser
+  },
+
+  async syncUserSubscription(email?: string): Promise<AppUser | null> {
+    const currentUser = this.getCurrentUser()
+    const targetEmail = (email || currentUser?.email || '').toLowerCase().trim()
+    if (!targetEmail) return currentUser
+
+    try {
+      // 1. If admin, retain admin & VIP privileges
+      if (currentUser?.role === 'admin' || targetEmail === 'admin@pairlens.pro') {
+        return currentUser
+      }
+
+      // 2. Query active subscriptions from Supabase DB
+      const { data: subs, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('email', targetEmail)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+
+      const now = Date.now()
+      const validSub = subs?.find((s: DbSubscription) => {
+        if (!s.expires_at) return true
+        return new Date(s.expires_at).getTime() > now
+      })
+
+      const effectivePlan: 'free' | 'pro' | 'vip' = validSub
+        ? (validSub.plan as 'pro' | 'vip')
+        : 'free'
+
+      if (currentUser && currentUser.email === targetEmail) {
+        if (currentUser.plan !== effectivePlan) {
+          currentUser.plan = effectivePlan
+          localStorage.setItem(USER_SESSION_KEY, JSON.stringify(currentUser))
+          window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: currentUser }))
+        }
+      }
+
+      // Cleanup rogue local flag if not paid
+      if (effectivePlan === 'free') {
+        localStorage.removeItem('stac:vip:active')
+      }
+
+      return currentUser
+    } catch {
+      return currentUser
+    }
   },
 
   getCurrentUser(): AppUser | null {
@@ -352,51 +405,144 @@ export const SupabaseDataService = {
     const cleanTx = txHash.trim()
     const cleanEmail = email.toLowerCase().trim()
 
-    if (!cleanTx || cleanTx.length < 8) {
-      throw new Error('Please enter a valid Transaction Hash (TxID)')
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      throw new Error('Please enter a valid email address.')
     }
 
-    // Live verification with public blockchain explorers
-    let verified = false
-    let explorerNote = 'Transaction verified on ledger'
+    if (!cleanTx) {
+      throw new Error('Transaction Hash (TxID) is required. Please transfer USDT and enter the TxID.')
+    }
 
+    // 1. Strict Chain-specific Format Validation
+    if (chain === 'TRC20') {
+      const isTronHash = /^[a-fA-F0-9]{64}$/.test(cleanTx)
+      if (!isTronHash) {
+        throw new Error(
+          'Invalid TRC-20 Transaction Hash. A Tron TxID must be exactly 64 hexadecimal characters.'
+        )
+      }
+    } else if (chain === 'ERC20') {
+      const isEthHash = /^0x[a-fA-F0-9]{64}$/.test(cleanTx)
+      if (!isEthHash) {
+        throw new Error(
+          'Invalid ERC-20 Transaction Hash. An Ethereum TxID must start with 0x followed by 64 hexadecimal characters.'
+        )
+      }
+    } else if (chain === 'SOL') {
+      const isSolSignature = /^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(cleanTx)
+      if (!isSolSignature) {
+        throw new Error(
+          'Invalid Solana Transaction Signature. Must be a valid Base58 Solana transaction signature.'
+        )
+      }
+    }
+
+    // 2. Anti-Reuse / Double-Spend Prevention Check
     try {
-      if (chain === 'TRC20') {
-        const res = await fetch(`https://apilist.tronscanapi.com/api/transaction-info?hash=${cleanTx}`)
+      const { data: existingSubs } = await supabase
+        .from('subscriptions')
+        .select('id, email, status, tx_hash')
+        .eq('tx_hash', cleanTx)
+        .limit(1)
+
+      if (existingSubs && existingSubs.length > 0) {
+        throw new Error(
+          'This Transaction Hash has already been used and activated. Duplicate transactions are not accepted.'
+        )
+      }
+    } catch (err: any) {
+      if (err.message && err.message.includes('already been used')) {
+        throw err
+      }
+    }
+
+    // 3. Live On-Chain Verification
+    let verified = false
+    let explorerNote = 'Transaction verified on blockchain'
+
+    if (chain === 'TRC20') {
+      try {
+        const res = await fetch(`https://apilist.tronscanapi.com/api/transaction-info?hash=${cleanTx}`, {
+          headers: { Accept: 'application/json' },
+        })
         if (res.ok) {
           const data = await res.json()
-          if (data && (data.confirmed || data.contractRet === 'SUCCESS' || data.hash)) {
+          if (data && (data.confirmed === true || data.contractRet === 'SUCCESS' || (data.block && data.block > 0))) {
             verified = true
-            explorerNote = 'Confirmed on Tron Blockchain'
+            explorerNote = `Confirmed on TronScan (Block #${data.block || 'Confirmed'})`
+          } else if (data && data.contractRet && data.contractRet !== 'SUCCESS') {
+            throw new Error(`Tron transaction failed on-chain with status: ${data.contractRet}`)
           }
         }
-      } else if (chain === 'ERC20') {
-        if (/^0x([A-Fa-f0-9]{64})$/.test(cleanTx) || cleanTx.startsWith('0x')) {
-          verified = true
-          explorerNote = 'Confirmed on Ethereum Ledger'
-        }
-      } else if (chain === 'SOL') {
-        if (cleanTx.length >= 35) {
-          verified = true
-          explorerNote = 'Confirmed on Solana Cluster'
-        }
+      } catch (err: any) {
+        if (err.message && err.message.includes('failed on-chain')) throw err
       }
-    } catch {
-      // In case of CORS or network limits, accept valid format
-      if (cleanTx.length >= 10) {
-        verified = true
+    } else if (chain === 'ERC20') {
+      try {
+        const rpcPayload = {
+          jsonrpc: '2.0',
+          method: 'eth_getTransactionReceipt',
+          params: [cleanTx],
+          id: 1,
+        }
+        const res = await fetch('https://cloudflare-eth.com', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(rpcPayload),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data && data.result) {
+            if (data.result.status === '0x1') {
+              verified = true
+              explorerNote = 'Confirmed on Ethereum Mainnet (Status 0x1 Success)'
+            } else if (data.result.status === '0x0') {
+              throw new Error('Ethereum transaction execution failed (Reverted).')
+            }
+          }
+        }
+      } catch (err: any) {
+        if (err.message && err.message.includes('failed')) throw err
+      }
+    } else if (chain === 'SOL') {
+      try {
+        const rpcPayload = {
+          jsonrpc: '2.0',
+          method: 'getSignatureStatuses',
+          params: [[cleanTx], { searchTransactionHistory: true }],
+          id: 1,
+        }
+        const res = await fetch('https://api.mainnet-beta.solana.com', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(rpcPayload),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          const status = data?.result?.value?.[0]
+          if (status) {
+            if (status.err) {
+              throw new Error('Solana transaction failed with on-chain error.')
+            }
+            if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+              verified = true
+              explorerNote = `Confirmed on Solana Cluster (${status.confirmationStatus})`
+            }
+          }
+        }
+      } catch (err: any) {
+        if (err.message && err.message.includes('failed')) throw err
       }
     }
 
-    if (!verified && cleanTx.length >= 10) {
-      verified = true
-    }
-
+    // 4. Strict Enforcement: If not confirmed on-chain, reject!
     if (!verified) {
-      throw new Error('Transaction could not be verified on blockchain. Please check your TxID.')
+      throw new Error(
+        `Unable to verify on-chain payment. No confirmed ${chain} transaction found for TxID: ${cleanTx.slice(0, 10)}... Please wait until your wallet broadcast confirms on the blockchain and try again.`
+      )
     }
 
-    // 1. Record subscription in Supabase DB
+    // 5. Record verified subscription in Supabase DB
     await this.createSubscription({
       email: cleanEmail,
       plan,
@@ -406,7 +552,7 @@ export const SupabaseDataService = {
       amount_usdt: amount,
     })
 
-    // 2. Update user plan in app_users table
+    // 6. Update user plan in app_users table
     try {
       await supabase
         .from('app_users')
@@ -414,15 +560,13 @@ export const SupabaseDataService = {
         .eq('email', cleanEmail)
     } catch {}
 
-    // 3. Update active user session
+    // 7. Update active user session
     const currentUser = this.getCurrentUser()
-    if (currentUser) {
+    if (currentUser && currentUser.email === cleanEmail) {
       currentUser.plan = plan
       localStorage.setItem(USER_SESSION_KEY, JSON.stringify(currentUser))
       window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: currentUser }))
     }
-    localStorage.setItem('stac:vip:active', 'true')
-    localStorage.setItem('stac:vip:email', cleanEmail)
 
     return { success: true, message: explorerNote }
   },
@@ -454,6 +598,23 @@ export const SupabaseDataService = {
   async updateSubscription(id: string, updates: Partial<DbSubscription>): Promise<void> {
     try {
       await supabase.from('subscriptions').update(updates).eq('id', id)
+      if (updates.status === 'active') {
+        const existing = await this.getSubscriptions()
+        const target = existing.find((s) => s.id === id)
+        if (target && target.email) {
+          await supabase
+            .from('app_users')
+            .update({ plan: updates.plan || target.plan })
+            .eq('email', target.email)
+
+          const curr = this.getCurrentUser()
+          if (curr && curr.email === target.email) {
+            curr.plan = updates.plan || target.plan
+            localStorage.setItem(USER_SESSION_KEY, JSON.stringify(curr))
+            window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: curr }))
+          }
+        }
+      }
     } catch {}
 
     const existing = await this.getSubscriptions()

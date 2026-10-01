@@ -92,24 +92,41 @@ export function CryptoCheckoutModal({
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email) {
-      toast.error('Please enter your email')
+    if (!email.trim()) {
+      toast.error('Please enter your registered email')
+      return
+    }
+
+    const cleanHash = txHash.trim()
+    if (!cleanHash) {
+      toast.error(`Please enter the ${selectedChain} Transaction Hash (TxID) after sending ${amountToPay} USDT.`)
+      return
+    }
+
+    if (selectedChain === 'TRC20' && !/^[a-fA-F0-9]{64}$/.test(cleanHash)) {
+      toast.error('Invalid TRC-20 TxID: Tron transaction hashes must be exactly 64 hexadecimal characters.')
+      return
+    }
+
+    if (selectedChain === 'ERC20' && !/^0x[a-fA-F0-9]{64}$/.test(cleanHash)) {
+      toast.error('Invalid ERC-20 TxID: Ethereum transaction hashes must start with 0x and be 66 characters.')
+      return
+    }
+
+    if (selectedChain === 'SOL' && !/^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(cleanHash)) {
+      toast.error('Invalid Solana Signature: Must be a valid Base58 Solana transaction signature.')
       return
     }
 
     setSubmitting(true)
-    setVerifyStatus('Broadcasting query to blockchain nodes...')
+    setVerifyStatus(`Querying ${selectedChain} network mempool & ledger...`)
 
     try {
-      // Simulate live blockchain confirmation steps
-      setTimeout(() => setVerifyStatus(`Scanning ${selectedChain} network mempool...`), 700)
-      setTimeout(() => setVerifyStatus(`Validating USDT transfer to ${activeWallet.slice(0, 8)}...`), 1400)
-
       const targetPlan = selectedPlan === 'lifetime' ? 'vip' : 'pro'
       const result = await SupabaseDataService.verifyBlockchainPayment(
         email.trim(),
         selectedChain,
-        txHash.trim() || `0x${Date.now()}${Math.random().toString(16).slice(2, 10)}`,
+        cleanHash,
         targetPlan,
         amountToPay
       )
@@ -119,7 +136,7 @@ export function CryptoCheckoutModal({
       toast.success('VIP Membership Activated Successfully!')
       if (onSuccess) onSuccess()
     } catch (err: any) {
-      toast.error(err.message || 'Error verifying payment. Please ensure your TxID is correct.')
+      toast.error(err.message || 'Error verifying blockchain payment. Please check your TxID.')
     } finally {
       setSubmitting(false)
       setVerifyStatus('')
@@ -349,15 +366,26 @@ export function CryptoCheckoutModal({
               </div>
 
               <div>
-                <label className="text-[11px] font-mono text-muted-foreground uppercase mb-1 block">
-                  Transaction Hash / TxID (Optional)
+                <label className="text-[11px] font-mono text-muted-foreground uppercase mb-1 block flex items-center justify-between">
+                  <span>{selectedChain} Transaction Hash / TxID *</span>
+                  <span className="text-[10px] text-amber-400 font-normal">Required for verification</span>
                 </label>
                 <Input
-                  placeholder="0x... or Tron Tx Hash"
+                  placeholder={
+                    selectedChain === 'TRC20'
+                      ? 'Paste 64-character Tron TxID'
+                      : selectedChain === 'ERC20'
+                      ? '0x... (66-character Ethereum TxID)'
+                      : 'Paste Solana transaction signature'
+                  }
                   value={txHash}
                   onChange={(e) => setTxHash(e.target.value)}
-                  className="font-mono text-xs h-9 bg-background/50"
+                  required
+                  className="font-mono text-xs h-9 bg-background/50 border-border/80 focus:border-cyan-500"
                 />
+                <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
+                  Transfer exact <strong className="text-foreground font-mono">${amountToPay} USDT</strong> to the {selectedChain} address above, then paste your TxID here.
+                </p>
               </div>
 
               {verifyStatus && (
