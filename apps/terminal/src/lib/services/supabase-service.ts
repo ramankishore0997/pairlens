@@ -65,6 +65,11 @@ export type DbSettings = {
     pro_yearly: number
     vip_lifetime: number
   }
+  telegram_config?: {
+    bot_token: string
+    channel_id: string
+    auto_post: boolean
+  }
   admin_credentials: {
     pin: string
   }
@@ -86,6 +91,11 @@ const DEFAULT_SETTINGS: DbSettings = {
     pro_monthly: 29,
     pro_yearly: 199,
     vip_lifetime: 499,
+  },
+  telegram_config: {
+    bot_token: '',
+    channel_id: '',
+    auto_post: false,
   },
   admin_credentials: {
     pin: '09970997',
@@ -307,6 +317,10 @@ export const SupabaseDataService = {
     const updated = [newTrade, ...existing.filter((t) => t.id !== newTrade.id)]
     localStorage.setItem(TRADES_CACHE_KEY, JSON.stringify(updated))
     window.dispatchEvent(new CustomEvent('stac:db:trades:updated', { detail: updated }))
+
+    // Auto-broadcast to Telegram channel if enabled
+    void this.broadcastToTelegram(newTrade, 'NEW_SIGNAL')
+
     return newTrade
   },
 
@@ -357,6 +371,86 @@ export const SupabaseDataService = {
     }
 
     await this.updateTrade(id, updates)
+
+    // Auto-broadcast outcome update to Telegram channel if enabled
+    void this.broadcastToTelegram({ ...trade, ...updates } as DbTrade, 'TRADE_CLOSED')
+  },
+
+  async broadcastToTelegram(
+    trade: DbTrade,
+    eventType: 'NEW_SIGNAL' | 'TRADE_CLOSED' = 'NEW_SIGNAL'
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      const settings = await this.getSettings()
+      const tg = settings?.telegram_config
+      if (!tg || !tg.bot_token || !tg.channel_id || !tg.auto_post) {
+        return { success: false, message: 'Telegram bot token or channel not configured' }
+      }
+
+      const isBuy = trade.type === 'BUY'
+      let messageHtml = ''
+
+      if (eventType === 'NEW_SIGNAL') {
+        messageHtml =
+          `🚀 <b>NEW VIP INSTITUTIONAL SIGNAL</b> 🚀\n\n` +
+          `📊 <b>Pair:</b> <code>${trade.symbol}</code> (${isBuy ? '🟢 BUY / LONG' : '🔴 SELL / SHORT'})\n` +
+          `🏷 <b>Asset Class:</b> ${trade.asset_class || 'Forex'}${trade.leverage ? ` | <b>Leverage:</b> ${trade.leverage}x` : ''}\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
+          `🎯 <b>Entry Price:</b> <code>${trade.entry_price}</code>\n` +
+          `🛑 <b>Stop Loss:</b> <code>${trade.sl_price}</code>\n` +
+          `🎯 <b>Take Profit 1:</b> <code>${trade.tp1_price}</code>\n` +
+          (trade.tp2_price ? `🎯 <b>Take Profit 2:</b> <code>${trade.tp2_price}</code>\n` : '') +
+          (trade.tp3_price ? `🎯 <b>Take Profit 3:</b> <code>${trade.tp3_price}</code>\n` : '') +
+          (trade.notes ? `\n📝 <b>Strategy Note:</b> <i>${trade.notes}</i>\n` : '') +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
+          `⚡ <i>Live on Pairlens Terminal VIP</i>`
+      } else {
+        const isWin = (trade.pnl_percent ?? 0) >= 0
+        messageHtml =
+          `${isWin ? '🎯 <b>TARGET REACHED & PROFIT LOCKED</b> 🎯' : '🛑 <b>TRADE CLOSED (STOP LOSS)</b> 🛑'}\n\n` +
+          `📊 <b>Pair:</b> <code>${trade.symbol}</code> (${trade.type})\n` +
+          `🏆 <b>Outcome:</b> <code>${trade.outcome?.toUpperCase() || 'CLOSED'}</code>\n` +
+          `💰 <b>P&L:</b> <b>${isWin ? `+${trade.pnl_percent}%` : `${trade.pnl_percent}%`}</b> (${trade.pips ?? 0} pips)\n` +
+          `🏁 <b>Exit Price:</b> <code>${trade.current_price ?? trade.tp1_price}</code>\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
+          `⚡ <i>Verified by Pairlens Institutional Desk</i>`
+      }
+
+      // If chart screenshot exists, send photo with caption
+      if (trade.chart_image_url && trade.chart_image_url.startsWith('http')) {
+        try {
+          const res = await fetch(`https://api.telegram.org/bot${tg.bot_token.trim()}/sendPhoto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: tg.channel_id.trim(),
+              photo: trade.chart_image_url.trim(),
+              caption: messageHtml,
+              parse_mode: 'HTML',
+            }),
+          })
+          if (res.ok) return { success: true }
+        } catch {}
+      }
+
+      // Direct text message
+      const res = await fetch(`https://api.telegram.org/bot${tg.bot_token.trim()}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: tg.channel_id.trim(),
+          text: messageHtml,
+          parse_mode: 'HTML',
+          disable_web_page_preview: false,
+        }),
+      })
+
+      if (res.ok) return { success: true }
+      const errJson = await res.json()
+      return { success: false, message: errJson?.description || 'Telegram API error' }
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Failed to connect to Telegram' }
+    }
   },
 
   async deleteTrade(id: string): Promise<void> {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -24,6 +24,10 @@ import {
   ChevronRight,
   HelpCircle,
   Eye,
+  Bell,
+  BellOff,
+  Copy,
+  Check,
 } from 'lucide-react'
 import { Button } from '@pairlens/ui/components/ui/button'
 import { Input } from '@pairlens/ui/components/ui/input'
@@ -35,10 +39,14 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@pairlens/ui/components/ui/dialog'
+import { toast } from 'sonner'
 import { SupabaseDataService, DbTrade, DbUser, supabase } from '@/lib/services/supabase-service'
+import { soundAlertService } from '@/lib/services/sound-alert'
 import { AdminPanel } from '@/components/admin/admin-panel'
 import { CryptoCheckoutModal } from '@/components/subscription/crypto-checkout-modal'
 import { TradeChartSnapshot } from './trade-chart-snapshot'
+import { TradePerformanceBar } from './trade-performance-bar'
+import { TradeLotCalculatorModal } from './trade-lot-calculator'
 
 export type TradeSignal = {
   id: string
@@ -92,6 +100,55 @@ export function TradesHub() {
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date())
 
   const [selectedTradeInspection, setSelectedTradeInspection] = useState<TradeSignal | null>(null)
+  const [lotCalcTrade, setLotCalcTrade] = useState<TradeSignal | null>(null)
+  const [copiedTradeId, setCopiedTradeId] = useState<string | null>(null)
+  const [soundMuted, setSoundMuted] = useState(() => soundAlertService.isMuted())
+
+  const isInitialLoadRef = useRef(true)
+  const prevActiveCountRef = useRef(0)
+
+  const toggleSound = () => {
+    const next = soundAlertService.toggleMute()
+    setSoundMuted(next)
+    if (!next) {
+      soundAlertService.playNewSignalChime()
+      toast.success('Audio chimes enabled')
+    } else {
+      toast.info('Audio chimes muted')
+    }
+  }
+
+  const handleCopyTrade = async (trade: TradeSignal) => {
+    const rr = (
+      Math.abs(trade.target1 - trade.entryPrice) /
+      Math.max(0.00001, Math.abs(trade.entryPrice - trade.stopLoss))
+    ).toFixed(2)
+
+    const text = [
+      `⚡ PAIRLENS VIP SIGNAL`,
+      `Symbol: ${trade.symbol}`,
+      `Type: ${trade.type}`,
+      `Entry: ${trade.entryPrice}`,
+      `Stop Loss: ${trade.stopLoss}`,
+      `TP1: ${trade.target1}`,
+      trade.target2 ? `TP2: ${trade.target2}` : null,
+      trade.target3 ? `TP3: ${trade.target3}` : null,
+      `R:R: 1:${rr}`,
+      trade.leverage ? `Leverage: ${trade.leverage}` : null,
+      trade.notes ? `Note: ${trade.notes}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedTradeId(trade.id)
+      toast.success(`${trade.symbol} parameters copied`)
+      setTimeout(() => setCopiedTradeId(null), 2000)
+    } catch {
+      toast.error('Failed to copy to clipboard')
+    }
+  }
 
   // Auth & DB subscription synchronization
   useEffect(() => {
@@ -132,6 +189,15 @@ export function TradesHub() {
           createdAt: new Date(t.created_at).getTime(),
           closedAt: t.closed_at ? new Date(t.closed_at).getTime() : undefined,
         }))
+
+        const activeCount = mapped.filter((t) => t.status === 'ACTIVE').length
+        if (!isInitialLoadRef.current && activeCount > prevActiveCountRef.current) {
+          soundAlertService.playNewSignalChime()
+          toast.success('⚡ New VIP signal received!')
+        }
+        prevActiveCountRef.current = activeCount
+        isInitialLoadRef.current = false
+
         setTrades(mapped)
         localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped))
         setLastSyncTime(new Date())
@@ -339,6 +405,22 @@ export function TradesHub() {
               />
             </div>
 
+            {/* Audio Alert Chime Toggle */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={toggleSound}
+              title={soundMuted ? 'Unmute Audio Chime Alerts' : 'Mute Audio Chime Alerts'}
+              className={`h-7 text-xs font-mono gap-1 px-2.5 transition-all ${
+                soundMuted
+                  ? 'border-border/40 text-muted-foreground/60 hover:text-foreground'
+                  : 'border-cyan-500/40 text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 shadow-xs shadow-cyan-500/10'
+              }`}
+            >
+              {soundMuted ? <BellOff className="size-3" /> : <Bell className="size-3 animate-pulse text-cyan-400" />}
+              <span className="hidden sm:inline">{soundMuted ? 'Muted' : 'Alerts ON'}</span>
+            </Button>
+
             {/* VIP Upgrade Button */}
             <Button
               size="sm"
@@ -367,6 +449,9 @@ export function TradesHub() {
       {/* Main Signal Cards Grid / Content Area */}
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <div className="max-w-7xl mx-auto space-y-6">
+          {/* Performance Bar (Always rendered in Past Results view) */}
+          {activeTab === 'PAST' && <TradePerformanceBar trades={trades} />}
+
           {activeTab === 'ACTIVE' && !isPaidMember ? (
             /* VIP Locked Gate for Free Members */
             <div className="relative rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-500/10 via-card/60 to-card/90 p-8 text-center overflow-hidden shadow-2xl backdrop-blur-md">
@@ -596,8 +681,8 @@ export function TradesHub() {
                     </div>
 
                     {/* Card Footer */}
-                    <div className="mt-4 pt-3 border-t border-border/30 flex items-center justify-between text-xs font-mono">
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <div className="mt-4 pt-3 border-t border-border/30 flex items-center justify-between text-xs font-mono gap-2">
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1 shrink-0">
                         <Clock className="size-3" />
                         {new Date(trade.createdAt).toLocaleDateString([], {
                           month: 'short',
@@ -607,12 +692,46 @@ export function TradesHub() {
                         })}
                       </span>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
                         {trade.status === 'ACTIVE' ? (
-                          <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/30">
-                            <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                            Live Tracking
-                          </span>
+                          <>
+                            {/* Lot & Risk Calculator Button */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setLotCalcTrade(trade)}
+                              className="h-6 text-[11px] font-mono px-2 text-muted-foreground hover:text-cyan-400 hover:bg-cyan-500/10 border border-border/40 rounded gap-1 transition-all"
+                              title="Calculate Lot Size & Risk"
+                            >
+                              <Calculator className="size-3 text-cyan-400" />
+                              <span>Calc</span>
+                            </Button>
+
+                            {/* One-Click Copy Setup Button */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleCopyTrade(trade)}
+                              className={`h-6 text-[11px] font-mono px-2 border rounded gap-1 transition-all ${
+                                copiedTradeId === trade.id
+                                  ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-400'
+                                  : 'border-border/40 text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10'
+                              }`}
+                              title="Copy trade parameters for MT4/MT5/Binance"
+                            >
+                              {copiedTradeId === trade.id ? (
+                                <>
+                                  <Check className="size-3 text-emerald-400" />
+                                  <span>Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="size-3" />
+                                  <span>Copy</span>
+                                </>
+                              )}
+                            </Button>
+                          </>
                         ) : (
                           <>
                             <button
@@ -736,6 +855,15 @@ export function TradesHub() {
         open={checkoutModalOpen}
         onOpenChange={setCheckoutModalOpen}
         initialPlan="monthly"
+      />
+
+      {/* Position & Lot Size Calculator Modal */}
+      <TradeLotCalculatorModal
+        trade={lotCalcTrade}
+        open={Boolean(lotCalcTrade)}
+        onOpenChange={(open) => {
+          if (!open) setLotCalcTrade(null)
+        }}
       />
 
       {/* Admin Panel Dialog (Only reachable by Admin) */}

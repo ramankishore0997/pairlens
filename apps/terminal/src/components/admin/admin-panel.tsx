@@ -24,6 +24,8 @@ import {
   ExternalLink,
   RefreshCw,
   LogOut,
+  Send,
+  MessageSquare,
 } from 'lucide-react'
 import { Button } from '@pairlens/ui/components/ui/button'
 import { Input } from '@pairlens/ui/components/ui/input'
@@ -141,6 +143,12 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     pro_yearly: 199,
     vip_lifetime: 499,
   })
+  const [telegramForm, setTelegramForm] = useState({
+    bot_token: '',
+    channel_id: '',
+    auto_post: false,
+  })
+  const [testingTelegram, setTestingTelegram] = useState(false)
 
   // Load data
   const loadData = async () => {
@@ -156,6 +164,13 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
       setSettings(conf)
       setWalletsForm(conf.crypto_wallets)
       setPricingForm(conf.pricing_plans)
+      if (conf.telegram_config) {
+        setTelegramForm({
+          bot_token: conf.telegram_config.bot_token || '',
+          channel_id: conf.telegram_config.channel_id || '',
+          auto_post: Boolean(conf.telegram_config.auto_post),
+        })
+      }
     } finally {
       setLoading(false)
     }
@@ -369,10 +384,57 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
       ...settings,
       crypto_wallets: walletsForm,
       pricing_plans: pricingForm,
+      telegram_config: telegramForm,
     }
     await SupabaseDataService.saveSettings(updated)
     setSettings(updated)
-    toast.success('Wallet & pricing settings saved to Supabase Postgres')
+    toast.success('Settings & Telegram configuration saved to Supabase')
+  }
+
+  // Test Telegram Bot Message
+  const handleTestTelegram = async () => {
+    if (!telegramForm.bot_token || !telegramForm.channel_id) {
+      toast.error('Please enter Bot Token and Channel ID first')
+      return
+    }
+
+    setTestingTelegram(true)
+    try {
+      const testTrade: DbTrade = {
+        id: 'test_sample',
+        symbol: 'EUR/USD',
+        type: 'BUY',
+        asset_class: 'Forex',
+        entry_price: 1.085,
+        sl_price: 1.0815,
+        tp1_price: 1.0895,
+        tp2_price: 1.094,
+        leverage: 50,
+        notes: 'Institutional Test Broadcast from Pairlens Admin Panel',
+        status: 'active',
+        outcome: 'open',
+        created_at: new Date().toISOString(),
+      }
+
+      // Temporarily save to settings so service can access it
+      if (settings) {
+        await SupabaseDataService.saveSettings({
+          ...settings,
+          telegram_config: { ...telegramForm, auto_post: true },
+        })
+      }
+
+      const res = await SupabaseDataService.broadcastToTelegram(testTrade, 'NEW_SIGNAL')
+      if (res.success) {
+        toast.success('✓ Test message sent successfully to your Telegram channel!')
+      } else {
+        toast.error(`Telegram Error: ${res.message || 'Check Bot Token and Channel ID'}`)
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send test message')
+    } finally {
+      setTestingTelegram(false)
+    }
   }
 
   // Filtered subscribers
@@ -920,8 +982,80 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
             </div>
           </div>
 
+          <div className="rounded-xl border border-border/60 bg-card/40 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold flex items-center gap-2 text-foreground">
+                <Send className="size-4 text-cyan-400" /> Telegram VIP Channel Auto-Broadcast
+              </h3>
+              <Badge
+                variant="outline"
+                className={
+                  telegramForm.auto_post
+                    ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10 font-mono text-[10px]'
+                    : 'border-border text-muted-foreground font-mono text-[10px]'
+                }
+              >
+                {telegramForm.auto_post ? '🟢 Auto-Post Enabled' : '⚪ Disabled'}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Automatically broadcast new signals and TP/SL outcome updates to your private Telegram VIP Channel with charts and formatted parameters.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-mono text-muted-foreground block mb-1">
+                  Telegram Bot API Token (from @BotFather)
+                </label>
+                <Input
+                  type="password"
+                  value={telegramForm.bot_token}
+                  onChange={(e) => setTelegramForm({ ...telegramForm, bot_token: e.target.value })}
+                  placeholder="e.g. 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                  className="font-mono text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-mono text-muted-foreground block mb-1">
+                  Telegram Channel ID or Username (e.g. @pairlens_vip or -100192837482)
+                </label>
+                <Input
+                  value={telegramForm.channel_id}
+                  onChange={(e) => setTelegramForm({ ...telegramForm, channel_id: e.target.value })}
+                  placeholder="e.g. @your_vip_channel or -100123456789"
+                  className="font-mono text-xs"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <label className="flex items-center gap-2 text-xs font-mono cursor-pointer text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={telegramForm.auto_post}
+                    onChange={(e) => setTelegramForm({ ...telegramForm, auto_post: e.target.checked })}
+                    className="size-4 rounded border-border text-cyan-500 focus:ring-cyan-500"
+                  />
+                  <span>Enable Auto-Post on New Signals & Target Hits</span>
+                </label>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleTestTelegram}
+                  disabled={testingTelegram || !telegramForm.bot_token || !telegramForm.channel_id}
+                  className="h-8 text-xs font-mono border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10 gap-1.5"
+                >
+                  <Send className="size-3" />
+                  {testingTelegram ? 'Sending Test...' : 'Send Test to Telegram'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <Button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-10 px-6">
-            Save Settings to Supabase
+            Save Settings & Telegram to Supabase
           </Button>
         </form>
       )}
