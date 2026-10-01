@@ -44,7 +44,7 @@ export function CryptoCheckoutModal({
   onSuccess?: () => void
 }) {
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>(initialPlan)
-  const [selectedChain, setSelectedChain] = useState<'TRC20' | 'ERC20' | 'SOL'>('TRC20')
+  const [selectedChain, setSelectedChain] = useState<'TRC20' | 'BEP20'>('TRC20')
   const [settings, setSettings] = useState<DbSettings | null>(null)
   const [copied, setCopied] = useState(false)
   const [step, setStep] = useState<'SELECT' | 'PAY' | 'CONFIRM'>('SELECT')
@@ -74,8 +74,7 @@ export function CryptoCheckoutModal({
 
   const walletAddresses = {
     TRC20: settings?.crypto_wallets?.usdt_trc20 || 'TLyKq7z4v6x8n9P1Q2R3S4T5U6V7W8X9YZ',
-    ERC20: settings?.crypto_wallets?.usdt_erc20 || '0x71C8360f3a8b4FaA5cD4eA9F8E19cD61e4A58249',
-    SOL: settings?.crypto_wallets?.solana || '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+    BEP20: settings?.crypto_wallets?.usdt_bep20 || '0x71C8360f3a8b4FaA5cD4eA9F8E19cD61e4A58249',
   }
 
   const activeWallet = walletAddresses[selectedChain]
@@ -108,13 +107,8 @@ export function CryptoCheckoutModal({
       return
     }
 
-    if (selectedChain === 'ERC20' && !/^0x[a-fA-F0-9]{64}$/.test(cleanHash)) {
-      toast.error('Invalid ERC-20 TxID: Ethereum transaction hashes must start with 0x and be 66 characters.')
-      return
-    }
-
-    if (selectedChain === 'SOL' && !/^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(cleanHash)) {
-      toast.error('Invalid Solana Signature: Must be a valid Base58 Solana transaction signature.')
+    if (selectedChain === 'BEP20' && !/^0x[a-fA-F0-9]{64}$/.test(cleanHash)) {
+      toast.error('Invalid BEP-20 TxID: BNB Smart Chain transaction hashes must start with 0x and be 66 characters.')
       return
     }
 
@@ -293,39 +287,30 @@ export function CryptoCheckoutModal({
               <label className="text-[11px] font-mono text-muted-foreground mb-1.5 block uppercase">
                 Select Network:
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   onClick={() => setSelectedChain('TRC20')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-center flex flex-col items-center gap-0.5 ${
                     selectedChain === 'TRC20'
                       ? 'border-cyan-500 bg-cyan-500/15 text-cyan-400 shadow-sm shadow-cyan-500/10'
                       : 'border-border/60 text-muted-foreground hover:text-foreground bg-background/50'
                   }`}
                 >
-                  TRC-20 (Tron)
+                  <span className="font-mono text-[12px] font-bold">TRC-20</span>
+                  <span className="text-[10px] font-normal opacity-80">Tron Network (USDT)</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedChain('ERC20')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
-                    selectedChain === 'ERC20'
+                  onClick={() => setSelectedChain('BEP20')}
+                  className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-center flex flex-col items-center gap-0.5 ${
+                    selectedChain === 'BEP20'
                       ? 'border-cyan-500 bg-cyan-500/15 text-cyan-400 shadow-sm shadow-cyan-500/10'
                       : 'border-border/60 text-muted-foreground hover:text-foreground bg-background/50'
                   }`}
                 >
-                  ERC-20 (ETH)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedChain('SOL')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
-                    selectedChain === 'SOL'
-                      ? 'border-cyan-500 bg-cyan-500/15 text-cyan-400 shadow-sm shadow-cyan-500/10'
-                      : 'border-border/60 text-muted-foreground hover:text-foreground bg-background/50'
-                  }`}
-                >
-                  Solana (SOL)
+                  <span className="font-mono text-[12px] font-bold">BEP-20</span>
+                  <span className="text-[10px] font-normal opacity-80">BNB Smart Chain (USDT)</span>
                 </button>
               </div>
             </div>
@@ -374,9 +359,7 @@ export function CryptoCheckoutModal({
                   placeholder={
                     selectedChain === 'TRC20'
                       ? 'Paste 64-character Tron TxID'
-                      : selectedChain === 'ERC20'
-                      ? '0x... (66-character Ethereum TxID)'
-                      : 'Paste Solana transaction signature'
+                      : '0x... (66-character BNB Smart Chain TxID)'
                   }
                   value={txHash}
                   onChange={(e) => setTxHash(e.target.value)}

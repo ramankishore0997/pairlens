@@ -57,8 +57,7 @@ export type DbSubscription = {
 export type DbSettings = {
   crypto_wallets: {
     usdt_trc20: string
-    usdt_erc20: string
-    solana: string
+    usdt_bep20: string
   }
   pricing_plans: {
     pro_monthly: number
@@ -80,8 +79,7 @@ const USERS_CACHE_KEY = 'stac:db:users'
 const DEFAULT_SETTINGS: DbSettings = {
   crypto_wallets: {
     usdt_trc20: 'TLyKq7z4v6x8n9P1Q2R3S4T5U6V7W8X9YZ',
-    usdt_erc20: '0x71C8360f3a8b4FaA5cD4eA9F8E19cD61e4A58249',
-    solana: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+    usdt_bep20: '0x71C8360f3a8b4FaA5cD4eA9F8E19cD61e4A58249',
   },
   pricing_plans: {
     pro_monthly: 29,
@@ -397,7 +395,7 @@ export const SupabaseDataService = {
 
   async verifyBlockchainPayment(
     email: string,
-    chain: 'TRC20' | 'ERC20' | 'SOL',
+    chain: 'TRC20' | 'BEP20',
     txHash: string,
     plan: 'pro' | 'vip',
     amount: number
@@ -421,18 +419,11 @@ export const SupabaseDataService = {
           'Invalid TRC-20 Transaction Hash. A Tron TxID must be exactly 64 hexadecimal characters.'
         )
       }
-    } else if (chain === 'ERC20') {
-      const isEthHash = /^0x[a-fA-F0-9]{64}$/.test(cleanTx)
-      if (!isEthHash) {
+    } else if (chain === 'BEP20') {
+      const isBscHash = /^0x[a-fA-F0-9]{64}$/.test(cleanTx)
+      if (!isBscHash) {
         throw new Error(
-          'Invalid ERC-20 Transaction Hash. An Ethereum TxID must start with 0x followed by 64 hexadecimal characters.'
-        )
-      }
-    } else if (chain === 'SOL') {
-      const isSolSignature = /^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(cleanTx)
-      if (!isSolSignature) {
-        throw new Error(
-          'Invalid Solana Transaction Signature. Must be a valid Base58 Solana transaction signature.'
+          'Invalid BEP-20 Transaction Hash. A BNB Smart Chain TxID must start with 0x followed by 64 hexadecimal characters.'
         )
       }
     }
@@ -477,7 +468,7 @@ export const SupabaseDataService = {
       } catch (err: any) {
         if (err.message && err.message.includes('failed on-chain')) throw err
       }
-    } else if (chain === 'ERC20') {
+    } else if (chain === 'BEP20') {
       try {
         const rpcPayload = {
           jsonrpc: '2.0',
@@ -485,49 +476,29 @@ export const SupabaseDataService = {
           params: [cleanTx],
           id: 1,
         }
-        const res = await fetch('https://cloudflare-eth.com', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(rpcPayload),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          if (data && data.result) {
-            if (data.result.status === '0x1') {
-              verified = true
-              explorerNote = 'Confirmed on Ethereum Mainnet (Status 0x1 Success)'
-            } else if (data.result.status === '0x0') {
-              throw new Error('Ethereum transaction execution failed (Reverted).')
+        // Try BSC public RPC endpoints
+        const endpoints = ['https://bsc-dataseed.binance.org', 'https://binance.llamarpc.com', 'https://bsc-rpc.publicnode.com']
+        for (const endpoint of endpoints) {
+          try {
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(rpcPayload),
+            })
+            if (res.ok) {
+              const data = await res.json()
+              if (data && data.result) {
+                if (data.result.status === '0x1') {
+                  verified = true
+                  explorerNote = 'Confirmed on BNB Smart Chain (BEP-20 Status 0x1 Success)'
+                  break
+                } else if (data.result.status === '0x0') {
+                  throw new Error('BNB Smart Chain (BEP-20) transaction execution failed (Reverted).')
+                }
+              }
             }
-          }
-        }
-      } catch (err: any) {
-        if (err.message && err.message.includes('failed')) throw err
-      }
-    } else if (chain === 'SOL') {
-      try {
-        const rpcPayload = {
-          jsonrpc: '2.0',
-          method: 'getSignatureStatuses',
-          params: [[cleanTx], { searchTransactionHistory: true }],
-          id: 1,
-        }
-        const res = await fetch('https://api.mainnet-beta.solana.com', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(rpcPayload),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          const status = data?.result?.value?.[0]
-          if (status) {
-            if (status.err) {
-              throw new Error('Solana transaction failed with on-chain error.')
-            }
-            if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
-              verified = true
-              explorerNote = `Confirmed on Solana Cluster (${status.confirmationStatus})`
-            }
+          } catch (e: any) {
+            if (e.message && e.message.includes('failed')) throw e
           }
         }
       } catch (err: any) {

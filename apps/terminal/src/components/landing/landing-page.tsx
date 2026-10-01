@@ -336,7 +336,7 @@ export function LandingPage({
               Select Your VIP Subscription
             </h2>
             <p className="text-xs sm:text-sm text-muted-foreground mt-2">
-              Pay securely in USDT (TRC-20 / ERC-20) or Solana. Instant account activation.
+              Pay securely in USDT (TRC-20 / BEP-20 BNB Smart Chain). Instant blockchain activation.
             </p>
           </div>
 

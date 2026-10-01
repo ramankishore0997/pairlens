@@ -93,8 +93,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
   // Settings form state
   const [walletsForm, setWalletsForm] = useState({
     usdt_trc20: '',
-    usdt_erc20: '',
-    solana: '',
+    usdt_bep20: '',
   })
   const [pricingForm, setPricingForm] = useState({
     pro_monthly: 29,
@@ -723,7 +722,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-mono text-muted-foreground block mb-1">
-                  USDT (TRC-20) Address (Recommended for low fees)
+                  USDT (TRC-20 Tron) Deposit Address
                 </label>
                 <Input
                   value={walletsForm.usdt_trc20}
@@ -735,24 +734,12 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
 
               <div>
                 <label className="text-xs font-mono text-muted-foreground block mb-1">
-                  USDT (ERC-20 / BEP-20) Address
+                  USDT (BEP-20 BNB Smart Chain) Deposit Address
                 </label>
                 <Input
-                  value={walletsForm.usdt_erc20}
-                  onChange={(e) => setWalletsForm({ ...walletsForm, usdt_erc20: e.target.value })}
+                  value={walletsForm.usdt_bep20}
+                  onChange={(e) => setWalletsForm({ ...walletsForm, usdt_bep20: e.target.value })}
                   placeholder="e.g. 0x71C8360f3a8b4FaA5cD4eA9F8E19cD61e4A58249"
-                  className="font-mono text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-mono text-muted-foreground block mb-1">
-                  Solana (SOL / USDT-SPL) Address
-                </label>
-                <Input
-                  value={walletsForm.solana}
-                  onChange={(e) => setWalletsForm({ ...walletsForm, solana: e.target.value })}
-                  placeholder="e.g. 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
                   className="font-mono text-xs"
                 />
               </div>
@@ -1112,7 +1099,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                 <Input
                   value={customerForm.chain}
                   onChange={(e) => setCustomerForm({ ...customerForm, chain: e.target.value })}
-                  placeholder="TRC20, ERC20, SOL"
+                  placeholder="TRC20, BEP20"
                 />
               </div>
 
