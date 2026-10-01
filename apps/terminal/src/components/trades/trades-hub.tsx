@@ -28,6 +28,7 @@ import {
   BellOff,
   Copy,
   Check,
+  Send,
 } from 'lucide-react'
 import { Button } from '@pairlens/ui/components/ui/button'
 import { Input } from '@pairlens/ui/components/ui/input'
@@ -104,6 +105,7 @@ export function TradesHub() {
   const [selectedTradeInspection, setSelectedTradeInspection] = useState<TradeSignal | null>(null)
   const [lotCalcTrade, setLotCalcTrade] = useState<TradeSignal | null>(null)
   const [copiedTradeId, setCopiedTradeId] = useState<string | null>(null)
+  const [telegramInviteLink, setTelegramInviteLink] = useState('https://t.me/pairlens_vip_alerts')
   const [soundMuted, setSoundMuted] = useState(() => {
     try {
       return soundAlertService.isMuted()
@@ -114,6 +116,15 @@ export function TradesHub() {
 
   const isInitialLoadRef = useRef(true)
   const prevActiveCountRef = useRef(0)
+
+  // Load telegram channel link from Supabase settings
+  useEffect(() => {
+    void SupabaseDataService.getSettings().then((s) => {
+      if (s?.telegram_config?.invite_link) {
+        setTelegramInviteLink(s.telegram_config.invite_link)
+      }
+    })
+  }, [])
 
   const toggleSound = () => {
     const next = soundAlertService.toggleMute()
@@ -429,6 +440,17 @@ export function TradesHub() {
               <span className="hidden sm:inline">{soundMuted ? 'Muted' : 'Alerts ON'}</span>
             </Button>
 
+            {/* Telegram Alerts Button */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.open(telegramInviteLink, '_blank')}
+              className="h-7 text-xs font-mono border-sky-500/40 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 font-bold gap-1 px-2.5 shadow-xs shadow-sky-500/10"
+              title="Join Telegram VIP Signals Channel"
+            >
+              <Send className="size-3 text-sky-400" /> Telegram Alerts
+            </Button>
+
             {/* VIP Upgrade Button */}
             <Button
               size="sm"
@@ -465,14 +487,17 @@ export function TradesHub() {
             <div className="relative rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-500/10 via-card/60 to-card/90 p-8 text-center overflow-hidden shadow-2xl backdrop-blur-md">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/15 via-transparent to-transparent pointer-events-none" />
 
-              <div className="relative z-10 max-w-2xl mx-auto flex flex-col items-center">
+              <div className="relative z-10 max-w-3xl mx-auto flex flex-col items-center">
                 <div className="size-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 mb-4 shadow-lg shadow-amber-500/10 animate-pulse">
                   <Lock className="size-8" />
                 </div>
 
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex flex-wrap items-center justify-center gap-2 mb-3">
                   <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-300 font-mono text-xs px-3 py-1">
                     <Sparkles className="size-3 mr-1 text-amber-400" /> VIP INSTITUTIONAL SIGNALS STREAM
+                  </Badge>
+                  <Badge variant="outline" className="border-sky-500/50 bg-sky-500/10 text-sky-300 font-mono text-[11px] px-2.5 py-1">
+                    <Send className="size-3 mr-1 text-sky-400" /> TELEGRAM BOT PUSHES
                   </Badge>
                   <Badge variant="outline" className="border-cyan-500/50 bg-cyan-500/10 text-cyan-300 font-mono text-[11px] px-2.5 py-1">
                     <Flame className="size-3 mr-1 text-cyan-400" /> 0-SECOND EXECUTION
@@ -483,24 +508,33 @@ export function TradesHub() {
                   Live Signals Stream Encrypted
                 </h2>
 
-                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                  Active trade setups with exact mathematical Entry Prices, tight Stop Losses, and 3 Take-Profit target ladders are streaming live for VIP members. Free delayed feeds release only after primary targets are already completed.
+                <p className="text-sm text-muted-foreground leading-relaxed mb-6 max-w-2xl">
+                  Active trade setups with exact mathematical Entry Prices, tight Stop Losses, and 3 Take-Profit target ladders are streaming live for VIP members with instant Telegram bot alerts.
                 </p>
 
-                {/* Value Propositions */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full mb-7 text-left">
+                {/* Value Propositions 4-Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full mb-7 text-left">
                   <div className="p-3 rounded-xl bg-background/60 border border-border/40 backdrop-blur-xs">
                     <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-bold mb-1">
                       <Zap className="size-3.5" /> Instant Delivery
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      Sub-second real-time push alerts on Forex, Gold & Crypto.
+                      Sub-second real-time terminal push alerts on Forex, Gold & Crypto.
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-background/60 border border-border/40 backdrop-blur-xs">
+                    <div className="flex items-center gap-2 text-sky-400 font-mono text-xs font-bold mb-1">
+                      <Send className="size-3.5" /> Telegram VIP Bot
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Auto-broadcast to Telegram channel with chart screenshot & target triggers.
                     </div>
                   </div>
 
                   <div className="p-3 rounded-xl bg-background/60 border border-border/40 backdrop-blur-xs">
                     <div className="flex items-center gap-2 text-emerald-400 font-mono text-xs font-bold mb-1">
-                      <Target className="size-3.5" /> 1:3.5+ Risk:Reward
+                      <Target className="size-3.5" /> 1:3.5+ R:R Ratio
                     </div>
                     <div className="text-[11px] text-muted-foreground">
                       Triple target ladders and mathematically validated risk management.
@@ -530,10 +564,19 @@ export function TradesHub() {
                   <Button
                     variant="outline"
                     size="lg"
+                    onClick={() => window.open(telegramInviteLink, '_blank')}
+                    className="w-full sm:w-auto font-mono text-xs h-11 border-sky-500/40 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 gap-2"
+                  >
+                    <Send className="size-4 text-sky-400" /> Join Telegram VIP Channel
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="lg"
                     onClick={() => setActiveTab('PAST')}
                     className="w-full sm:w-auto font-mono text-xs h-11 border-border/60 hover:bg-muted/40"
                   >
-                    <CheckCircle2 className="size-4 mr-2 text-emerald-400" /> View Free Past Results ({pastTrades.length})
+                    <CheckCircle2 className="size-4 mr-2 text-emerald-400" /> Past Results ({pastTrades.length})
                   </Button>
                 </div>
               </div>

@@ -151,7 +151,8 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
   const [telegramForm, setTelegramForm] = useState({
     bot_token: '',
     channel_id: '',
-    auto_post: false,
+    invite_link: 'https://t.me/pairlens_vip_alerts',
+    auto_post: true,
   })
   const [testingTelegram, setTestingTelegram] = useState(false)
 
@@ -173,7 +174,8 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
         setTelegramForm({
           bot_token: conf.telegram_config.bot_token || '',
           channel_id: conf.telegram_config.channel_id || '',
-          auto_post: Boolean(conf.telegram_config.auto_post),
+          invite_link: conf.telegram_config.invite_link || 'https://t.me/pairlens_vip_alerts',
+          auto_post: conf.telegram_config.auto_post !== false,
         })
       }
     } finally {
@@ -205,6 +207,20 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     sessionStorage.removeItem('stac:admin:auth')
     setPinInput('')
     toast.info('Logged out from Admin Panel')
+  }
+
+  // Broadcast trade directly to Telegram
+  const handleBroadcastTrade = async (trade: DbTrade) => {
+    toast.loading(`Broadcasting ${trade.symbol} to Telegram VIP Channel...`, { id: `tg-${trade.id}` })
+    const res = await SupabaseDataService.broadcastToTelegram(
+      trade,
+      trade.status === 'active' ? 'NEW_SIGNAL' : 'TRADE_CLOSED'
+    )
+    if (res.success) {
+      toast.success(`⚡ ${trade.symbol} broadcasted to Telegram successfully!`, { id: `tg-${trade.id}` })
+    } else {
+      toast.error(`Telegram broadcast failed: ${res.message || 'Check bot token/channel ID in Settings'}`, { id: `tg-${trade.id}` })
+    }
   }
 
   // Handle create trade
@@ -701,6 +717,15 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                           <Button
                             size="sm"
                             variant="outline"
+                            onClick={() => handleBroadcastTrade(trade)}
+                            className="h-6 text-[10px] px-2 border-sky-500/40 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 gap-1 font-bold"
+                            title="Broadcast Live Signal to Telegram VIP Channel"
+                          >
+                            <Send className="size-3" /> Telegram
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
                             onClick={() => handleOpenEditTrade(trade)}
                             className="h-6 text-[10px] px-2 border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10 gap-1 font-bold"
                             title="Edit Signal, Prices & Screenshot"
@@ -770,6 +795,15 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                         {t.closed_at ? new Date(t.closed_at).toLocaleDateString() : 'Recent'}
                       </td>
                       <td className="p-3 text-right space-x-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleBroadcastTrade(t)}
+                          className="h-6 px-1.5 text-[10px] text-sky-400 hover:bg-sky-500/10 gap-1"
+                          title="Broadcast Outcome Result to Telegram VIP Channel"
+                        >
+                          <Send className="size-3" />
+                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"
@@ -1029,6 +1063,18 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                   value={telegramForm.channel_id}
                   onChange={(e) => setTelegramForm({ ...telegramForm, channel_id: e.target.value })}
                   placeholder="e.g. @your_vip_channel or -100123456789"
+                  className="font-mono text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-mono text-muted-foreground block mb-1">
+                  Public Telegram Channel Invite / Join Link (for Subscribers)
+                </label>
+                <Input
+                  value={telegramForm.invite_link}
+                  onChange={(e) => setTelegramForm({ ...telegramForm, invite_link: e.target.value })}
+                  placeholder="e.g. https://t.me/your_vip_signals_channel"
                   className="font-mono text-xs"
                 />
               </div>

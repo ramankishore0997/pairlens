@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   Flame,
   Star,
+  Send,
 } from 'lucide-react'
 import { Button } from '@pairlens/ui/components/ui/button'
 import { Input } from '@pairlens/ui/components/ui/input'
@@ -391,19 +392,42 @@ export function CryptoCheckoutModal({
         )}
 
         {step === 'CONFIRM' && (
-          <div className="text-center py-6 space-y-4">
-            <div className="size-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto shadow-lg shadow-emerald-500/20">
+          <div className="text-center py-6 space-y-4 font-mono">
+            <div className="size-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto shadow-lg shadow-emerald-500/20 animate-pulse">
               <CheckCircle2 className="size-8" />
             </div>
             <div>
               <h3 className="text-xl font-bold text-foreground">VIP Access Activated!</h3>
               <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">
-                Your payment request has been synced with the Supabase database. You now have full institutional signal access and VIP badge unlocked.
+                Your blockchain payment has been verified on-chain. You now have full institutional signal access unlocked.
               </p>
             </div>
+
+            <div className="p-3.5 rounded-xl bg-sky-500/10 border border-sky-500/30 text-left space-y-2">
+              <div className="flex items-center gap-2 text-sky-400 font-bold text-xs">
+                <Send className="size-4" /> Next Step: Join Private VIP Telegram
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Connect directly to our VIP Telegram bot channel to receive 0.1s instant push alerts for every trade setup, entry trigger, and take-profit hit on your mobile device.
+              </p>
+              <Button
+                type="button"
+                onClick={() =>
+                  window.open(
+                    settings?.telegram_config?.invite_link || 'https://t.me/pairlens_vip_alerts',
+                    '_blank'
+                  )
+                }
+                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold h-9 text-xs gap-1.5 shadow-md shadow-sky-500/20 mt-1"
+              >
+                <Send className="size-3.5" /> Join VIP Telegram Channel Now
+              </Button>
+            </div>
+
             <Button
               onClick={() => onOpenChange(false)}
-              className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold h-10 shadow-lg shadow-cyan-500/20"
+              variant="outline"
+              className="w-full font-mono text-xs h-9"
             >
               Continue to Terminal
             </Button>

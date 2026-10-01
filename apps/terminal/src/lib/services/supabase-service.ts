@@ -68,6 +68,7 @@ export type DbSettings = {
   telegram_config?: {
     bot_token: string
     channel_id: string
+    invite_link: string
     auto_post: boolean
   }
   admin_credentials: {
@@ -95,7 +96,8 @@ const DEFAULT_SETTINGS: DbSettings = {
   telegram_config: {
     bot_token: '',
     channel_id: '',
-    auto_post: false,
+    invite_link: 'https://t.me/pairlens_vip_alerts',
+    auto_post: true,
   },
   admin_credentials: {
     pin: '09970997',
