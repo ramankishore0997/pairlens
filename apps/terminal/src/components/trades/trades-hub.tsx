@@ -85,10 +85,12 @@ export function TradesHub() {
   )
 
   const [trades, setTrades] = useState<Array<TradeSignal>>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) return JSON.parse(saved)
-    } catch {}
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (saved) return JSON.parse(saved)
+      } catch {}
+    }
     return []
   })
 
@@ -102,7 +104,13 @@ export function TradesHub() {
   const [selectedTradeInspection, setSelectedTradeInspection] = useState<TradeSignal | null>(null)
   const [lotCalcTrade, setLotCalcTrade] = useState<TradeSignal | null>(null)
   const [copiedTradeId, setCopiedTradeId] = useState<string | null>(null)
-  const [soundMuted, setSoundMuted] = useState(() => soundAlertService.isMuted())
+  const [soundMuted, setSoundMuted] = useState(() => {
+    try {
+      return soundAlertService.isMuted()
+    } catch {
+      return false
+    }
+  })
 
   const isInitialLoadRef = useRef(true)
   const prevActiveCountRef = useRef(0)

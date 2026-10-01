@@ -49,7 +49,12 @@ import {
 export function AdminPanel({ onClose }: { onClose?: () => void }) {
   // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return sessionStorage.getItem('stac:admin:auth') === 'true'
+    if (typeof window !== 'undefined') {
+      try {
+        return sessionStorage.getItem('stac:admin:auth') === 'true'
+      } catch {}
+    }
+    return false
   })
   const [pinInput, setPinInput] = useState('')
   const [activeTab, setActiveTab] = useState<'SIGNALS' | 'CUSTOMERS' | 'SETTINGS'>('SIGNALS')

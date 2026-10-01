@@ -92,7 +92,7 @@ export function TradeLotCalculatorModal({
   const tp2RewardDollars = trade.target2 ? ((tp2Distance / Math.max(0.00001, slDistance)) * riskAmountDollars).toFixed(2) : null
   const tp2Rr = trade.target2 ? (tp2Distance / Math.max(0.00001, slDistance)).toFixed(2) : null
 
-  const handleCopySetupWithRisk = () => {
+  const handleCopySetupWithRisk = async () => {
     const text = `📊 PAIRLENS RISK & LOT PLAN
 Pair: ${trade.symbol} (${trade.type})
 Account Balance: $${accountBalance.toLocaleString()}
@@ -105,10 +105,16 @@ Target 1: ${trade.target1} (+$${tp1RewardDollars} · 1:${tp1Rr} R:R)
 ${trade.target2 ? `Target 2: ${trade.target2} (+$${tp2RewardDollars} · 1:${tp2Rr} R:R)` : ''}
 ⚡ Calculated on Pairlens Terminal`
 
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    toast.success('Risk & Lot Size calculation copied to clipboard!')
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(text)
+      }
+      setCopied(true)
+      toast.success('Risk & Lot Size calculation copied to clipboard!')
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error('Failed to copy to clipboard')
+    }
   }
 
   return (

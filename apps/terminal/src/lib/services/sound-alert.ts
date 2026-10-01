@@ -4,29 +4,33 @@
  */
 class SoundAlertService {
   private audioCtx: AudioContext | null = null
-  private isMuted: boolean = false
+  private _isMuted: boolean = false
 
   constructor() {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('pairlens:sound:muted')
-        this.isMuted = saved === 'true'
+        this._isMuted = saved === 'true'
       } catch {}
     }
   }
 
   public toggleMute(): boolean {
-    this.isMuted = !this.isMuted
+    this._isMuted = !this._isMuted
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('pairlens:sound:muted', String(this.isMuted))
+        localStorage.setItem('pairlens:sound:muted', String(this._isMuted))
       } catch {}
     }
-    return this.isMuted
+    return this._isMuted
+  }
+
+  public isMuted(): boolean {
+    return this._isMuted
   }
 
   public getIsMuted(): boolean {
-    return this.isMuted
+    return this._isMuted
   }
 
   private initContext() {
@@ -45,7 +49,7 @@ class SoundAlertService {
    * Crisp Bloomberg/Terminal Institutional Alert Chime (Harmonic Double-Ping)
    */
   public playNewSignalChime() {
-    if (this.isMuted || typeof window === 'undefined') return
+    if (this._isMuted || typeof window === 'undefined') return
 
     try {
       this.initContext()
@@ -92,7 +96,7 @@ class SoundAlertService {
    * Target Hit / Profit Locked Chime (Emerald Ascending Arpeggio)
    */
   public playProfitHitChime() {
-    if (this.isMuted || typeof window === 'undefined') return
+    if (this._isMuted || typeof window === 'undefined') return
 
     try {
       this.initContext()

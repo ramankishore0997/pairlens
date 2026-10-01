@@ -102,6 +102,35 @@ const DEFAULT_SETTINGS: DbSettings = {
   },
 }
 
+const safeStorage = {
+  getItem: (key: string): string | null => {
+    if (typeof window === 'undefined') return null
+    try {
+      return localStorage.getItem(key)
+    } catch {
+      return null
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    if (typeof window === 'undefined') return
+    try {
+      localStorage.setItem(key, value)
+    } catch {}
+  },
+  removeItem: (key: string): void => {
+    if (typeof window === 'undefined') return
+    try {
+      localStorage.removeItem(key)
+    } catch {}
+  },
+  dispatch: (name: string, detail?: any): void => {
+    if (typeof window === 'undefined') return
+    try {
+      window.dispatchEvent(new CustomEvent(name, { detail }))
+    } catch {}
+  },
+}
+
 export const SupabaseDataService = {
   // ---------------- USER AUTHENTICATION ----------------
   async signUp(name: string, email: string, passwordHash: string): Promise<AppUser> {
@@ -131,12 +160,12 @@ export const SupabaseDataService = {
     // Save in local users cache
     const existingUsers = this.getCachedUsers()
     const updatedUsers = [...existingUsers.filter((u) => u.email !== cleanEmail), newUser]
-    localStorage.setItem(USERS_CACHE_KEY, JSON.stringify(updatedUsers))
+    safeStorage.setItem(USERS_CACHE_KEY, JSON.stringify(updatedUsers))
 
     // Set current active session
-    localStorage.setItem(USER_SESSION_KEY, JSON.stringify(newUser))
-    localStorage.removeItem('stac:vip:active')
-    window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: newUser }))
+    safeStorage.setItem(USER_SESSION_KEY, JSON.stringify(newUser))
+    safeStorage.removeItem('stac:vip:active')
+    safeStorage.dispatch('stac:auth:changed', newUser)
     return newUser
   },
 
@@ -159,8 +188,8 @@ export const SupabaseDataService = {
           plan: data.plan || 'free',
           created_at: data.created_at,
         }
-        localStorage.setItem(USER_SESSION_KEY, JSON.stringify(user))
-        window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: user }))
+        safeStorage.setItem(USER_SESSION_KEY, JSON.stringify(user))
+        safeStorage.dispatch('stac:auth:changed', user)
         // Also sync subscription verification from DB
         void this.syncUserSubscription(cleanEmail)
         return user
@@ -171,8 +200,8 @@ export const SupabaseDataService = {
     const existingUsers = this.getCachedUsers()
     const found = existingUsers.find((u) => u.email === cleanEmail)
     if (found) {
-      localStorage.setItem(USER_SESSION_KEY, JSON.stringify(found))
-      window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: found }))
+      safeStorage.setItem(USER_SESSION_KEY, JSON.stringify(found))
+      safeStorage.dispatch('stac:auth:changed', found)
       void this.syncUserSubscription(cleanEmail)
       return found
     }
@@ -186,9 +215,9 @@ export const SupabaseDataService = {
       plan: 'free',
       created_at: new Date().toISOString(),
     }
-    localStorage.setItem(USER_SESSION_KEY, JSON.stringify(fallbackUser))
-    localStorage.removeItem('stac:vip:active')
-    window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: fallbackUser }))
+    safeStorage.setItem(USER_SESSION_KEY, JSON.stringify(fallbackUser))
+    safeStorage.removeItem('stac:vip:active')
+    safeStorage.dispatch('stac:auth:changed', fallbackUser)
     return fallbackUser
   },
 
@@ -224,14 +253,14 @@ export const SupabaseDataService = {
       if (currentUser && currentUser.email === targetEmail) {
         if (currentUser.plan !== effectivePlan) {
           currentUser.plan = effectivePlan
-          localStorage.setItem(USER_SESSION_KEY, JSON.stringify(currentUser))
-          window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: currentUser }))
+          safeStorage.setItem(USER_SESSION_KEY, JSON.stringify(currentUser))
+          safeStorage.dispatch('stac:auth:changed', currentUser)
         }
       }
 
       // Cleanup rogue local flag if not paid
       if (effectivePlan === 'free') {
-        localStorage.removeItem('stac:vip:active')
+        safeStorage.removeItem('stac:vip:active')
       }
 
       return currentUser
@@ -242,21 +271,21 @@ export const SupabaseDataService = {
 
   getCurrentUser(): AppUser | null {
     try {
-      const saved = localStorage.getItem(USER_SESSION_KEY)
+      const saved = safeStorage.getItem(USER_SESSION_KEY)
       if (saved) return JSON.parse(saved)
     } catch {}
     return null
   },
 
   signOut(): void {
-    localStorage.removeItem(USER_SESSION_KEY)
-    localStorage.removeItem('stac:vip:active')
-    window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: null }))
+    safeStorage.removeItem(USER_SESSION_KEY)
+    safeStorage.removeItem('stac:vip:active')
+    safeStorage.dispatch('stac:auth:changed', null)
   },
 
   getCachedUsers(): Array<AppUser> {
     try {
-      const saved = localStorage.getItem(USERS_CACHE_KEY)
+      const saved = safeStorage.getItem(USERS_CACHE_KEY)
       if (saved) return JSON.parse(saved)
     } catch {}
     return []
@@ -270,7 +299,7 @@ export const SupabaseDataService = {
         .order('created_at', { ascending: false })
 
       if (!error && data && data.length > 0) {
-        localStorage.setItem(USERS_CACHE_KEY, JSON.stringify(data))
+        safeStorage.setItem(USERS_CACHE_KEY, JSON.stringify(data))
         return data as Array<AppUser>
       }
     } catch {}
@@ -287,12 +316,12 @@ export const SupabaseDataService = {
         .order('created_at', { ascending: false })
 
       if (!error && data) {
-        localStorage.setItem(TRADES_CACHE_KEY, JSON.stringify(data))
+        safeStorage.setItem(TRADES_CACHE_KEY, JSON.stringify(data))
         return data as Array<DbTrade>
       }
     } catch {}
 
-    const cached = localStorage.getItem(TRADES_CACHE_KEY)
+    const cached = safeStorage.getItem(TRADES_CACHE_KEY)
     if (cached) {
       try {
         return JSON.parse(cached)
@@ -315,8 +344,8 @@ export const SupabaseDataService = {
 
     const existing = await this.getTrades()
     const updated = [newTrade, ...existing.filter((t) => t.id !== newTrade.id)]
-    localStorage.setItem(TRADES_CACHE_KEY, JSON.stringify(updated))
-    window.dispatchEvent(new CustomEvent('stac:db:trades:updated', { detail: updated }))
+    safeStorage.setItem(TRADES_CACHE_KEY, JSON.stringify(updated))
+    safeStorage.dispatch('stac:db:trades:updated', updated)
 
     // Auto-broadcast to Telegram channel if enabled
     void this.broadcastToTelegram(newTrade, 'NEW_SIGNAL')
@@ -336,8 +365,8 @@ export const SupabaseDataService = {
     const updated = existing.map((t) =>
       t.id === id ? { ...t, ...updates, updated_at: new Date().toISOString() } : t
     )
-    localStorage.setItem(TRADES_CACHE_KEY, JSON.stringify(updated))
-    window.dispatchEvent(new CustomEvent('stac:db:trades:updated', { detail: updated }))
+    safeStorage.setItem(TRADES_CACHE_KEY, JSON.stringify(updated))
+    safeStorage.dispatch('stac:db:trades:updated', updated)
   },
 
   async closeTrade(
@@ -460,8 +489,8 @@ export const SupabaseDataService = {
 
     const existing = await this.getTrades()
     const updated = existing.filter((t) => t.id !== id)
-    localStorage.setItem(TRADES_CACHE_KEY, JSON.stringify(updated))
-    window.dispatchEvent(new CustomEvent('stac:db:trades:updated', { detail: updated }))
+    safeStorage.setItem(TRADES_CACHE_KEY, JSON.stringify(updated))
+    safeStorage.dispatch('stac:db:trades:updated', updated)
   },
 
   // ---------------- SUBSCRIPTIONS ----------------
@@ -473,12 +502,12 @@ export const SupabaseDataService = {
         .order('created_at', { ascending: false })
 
       if (!error && data) {
-        localStorage.setItem(SUBS_CACHE_KEY, JSON.stringify(data))
+        safeStorage.setItem(SUBS_CACHE_KEY, JSON.stringify(data))
         return data as Array<DbSubscription>
       }
     } catch {}
 
-    const cached = localStorage.getItem(SUBS_CACHE_KEY)
+    const cached = safeStorage.getItem(SUBS_CACHE_KEY)
     if (cached) {
       try {
         return JSON.parse(cached)
@@ -630,8 +659,8 @@ export const SupabaseDataService = {
     const currentUser = this.getCurrentUser()
     if (currentUser && currentUser.email === cleanEmail) {
       currentUser.plan = plan
-      localStorage.setItem(USER_SESSION_KEY, JSON.stringify(currentUser))
-      window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: currentUser }))
+      safeStorage.setItem(USER_SESSION_KEY, JSON.stringify(currentUser))
+      safeStorage.dispatch('stac:auth:changed', currentUser)
     }
 
     return { success: true, message: explorerNote }
@@ -656,8 +685,8 @@ export const SupabaseDataService = {
 
     const existing = await this.getSubscriptions()
     const updated = [newSub, ...existing.filter((s) => s.id !== newSub.id)]
-    localStorage.setItem(SUBS_CACHE_KEY, JSON.stringify(updated))
-    window.dispatchEvent(new CustomEvent('stac:db:subs:updated', { detail: updated }))
+    safeStorage.setItem(SUBS_CACHE_KEY, JSON.stringify(updated))
+    safeStorage.dispatch('stac:db:subs:updated', updated)
     return newSub
   },
 
@@ -676,8 +705,8 @@ export const SupabaseDataService = {
           const curr = this.getCurrentUser()
           if (curr && curr.email === target.email) {
             curr.plan = updates.plan || target.plan
-            localStorage.setItem(USER_SESSION_KEY, JSON.stringify(curr))
-            window.dispatchEvent(new CustomEvent('stac:auth:changed', { detail: curr }))
+            safeStorage.setItem(USER_SESSION_KEY, JSON.stringify(curr))
+            safeStorage.dispatch('stac:auth:changed', curr)
           }
         }
       }
@@ -685,8 +714,8 @@ export const SupabaseDataService = {
 
     const existing = await this.getSubscriptions()
     const updated = existing.map((s) => (s.id === id ? { ...s, ...updates } : s))
-    localStorage.setItem(SUBS_CACHE_KEY, JSON.stringify(updated))
-    window.dispatchEvent(new CustomEvent('stac:db:subs:updated', { detail: updated }))
+    safeStorage.setItem(SUBS_CACHE_KEY, JSON.stringify(updated))
+    safeStorage.dispatch('stac:db:subs:updated', updated)
   },
 
   async deleteSubscription(id: string): Promise<void> {
@@ -696,8 +725,8 @@ export const SupabaseDataService = {
 
     const existing = await this.getSubscriptions()
     const updated = existing.filter((s) => s.id !== id)
-    localStorage.setItem(SUBS_CACHE_KEY, JSON.stringify(updated))
-    window.dispatchEvent(new CustomEvent('stac:db:subs:updated', { detail: updated }))
+    safeStorage.setItem(SUBS_CACHE_KEY, JSON.stringify(updated))
+    safeStorage.dispatch('stac:db:subs:updated', updated)
   },
 
   // ---------------- SETTINGS ----------------
@@ -710,13 +739,14 @@ export const SupabaseDataService = {
           if (row.key === 'crypto_wallets') merged.crypto_wallets = row.value
           if (row.key === 'pricing_plans') merged.pricing_plans = row.value
           if (row.key === 'admin_credentials') merged.admin_credentials = row.value
+          if (row.key === 'telegram_config') merged.telegram_config = row.value
         })
-        localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(merged))
+        safeStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(merged))
         return merged
       }
     } catch {}
 
-    const cached = localStorage.getItem(SETTINGS_CACHE_KEY)
+    const cached = safeStorage.getItem(SETTINGS_CACHE_KEY)
     if (cached) {
       try {
         return JSON.parse(cached)
@@ -731,10 +761,11 @@ export const SupabaseDataService = {
         { key: 'crypto_wallets', value: settings.crypto_wallets, updated_at: new Date().toISOString() },
         { key: 'pricing_plans', value: settings.pricing_plans, updated_at: new Date().toISOString() },
         { key: 'admin_credentials', value: settings.admin_credentials, updated_at: new Date().toISOString() },
+        { key: 'telegram_config', value: settings.telegram_config, updated_at: new Date().toISOString() },
       ])
     } catch {}
 
-    localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(settings))
-    window.dispatchEvent(new CustomEvent('stac:db:settings:updated', { detail: settings }))
+    safeStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(settings))
+    safeStorage.dispatch('stac:db:settings:updated', settings)
   },
 }
