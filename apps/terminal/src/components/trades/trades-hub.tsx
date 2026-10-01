@@ -38,6 +38,7 @@ import {
 import { SupabaseDataService, DbTrade, DbUser, supabase } from '@/lib/services/supabase-service'
 import { AdminPanel } from '@/components/admin/admin-panel'
 import { CryptoCheckoutModal } from '@/components/subscription/crypto-checkout-modal'
+import { TradeChartSnapshot } from './trade-chart-snapshot'
 
 export type TradeSignal = {
   id: string
@@ -52,6 +53,7 @@ export type TradeSignal = {
   timeframe: string
   leverage?: string
   notes?: string
+  chartImageUrl?: string
   status: 'ACTIVE' | 'CLOSED'
   closeReason?: 'TP1' | 'TP2' | 'TP3' | 'SL' | 'MANUAL' | 'CANCELLED'
   closePrice?: number
@@ -141,6 +143,7 @@ export function TradesHub() {
           timeframe: t.leverage ? `${t.leverage}x` : '4H',
           leverage: t.leverage ? `1:${t.leverage}` : undefined,
           notes: t.notes,
+          chartImageUrl: t.chart_image_url,
           status: t.status === 'active' ? 'ACTIVE' : 'CLOSED',
           closeReason: (t.outcome?.toUpperCase() as any) || 'TP1',
           closePrice: t.current_price ? Number(t.current_price) : undefined,
@@ -746,7 +749,7 @@ export function TradesHub() {
       {/* Trade Inspection & Proof Modal */}
       {selectedTradeInspection && (
         <Dialog open={Boolean(selectedTradeInspection)} onOpenChange={() => setSelectedTradeInspection(null)}>
-          <DialogContent className="max-w-md bg-card border-border/80">
+          <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-card border-border/80">
             <DialogHeader>
               <div className="flex items-center justify-between pb-2 border-b border-border/40">
                 <div className="flex items-center gap-2">
@@ -756,19 +759,22 @@ export function TradesHub() {
                   <span className="text-base font-bold font-mono text-foreground">{selectedTradeInspection.symbol}</span>
                 </div>
                 <Badge variant="outline" className="border-cyan-500/40 text-cyan-400 font-mono text-xs">
-                  Audited Execution
+                  Audited Execution Proof
                 </Badge>
               </div>
-              <DialogTitle className="text-base font-bold mt-3">
+              <DialogTitle className="text-base font-bold mt-2">
                 Trade Setup & Verification Evidence
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Institutional analysis breakdown, entry confluence, and targets hit.
+                Institutional analysis breakdown, entry confluence, and targets hit visual proof.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-3 font-mono text-xs py-2">
-              <div className="grid grid-cols-3 gap-2 p-3 rounded-lg bg-background/60 border border-border/40 text-center">
+            <div className="space-y-3 font-mono text-xs py-1">
+              {/* Hybrid Visual Chart Proof (Custom Screenshot or Auto-Generated Vector Candlestick Chart) */}
+              <TradeChartSnapshot trade={selectedTradeInspection} height={230} />
+
+              <div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-background/60 border border-border/40 text-center">
                 <div>
                   <span className="text-[10px] text-muted-foreground block">Entry</span>
                   <span className="font-bold text-foreground">{selectedTradeInspection.entryPrice}</span>
@@ -783,7 +789,7 @@ export function TradesHub() {
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 space-y-1.5">
+              <div className="p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground text-[11px]">Outcome Status:</span>
                   <span className="text-emerald-400 font-bold">{selectedTradeInspection.closeReason || 'TP2 HIT'}</span>
@@ -799,13 +805,13 @@ export function TradesHub() {
                   </div>
                 )}
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-[11px]">Speed to Target:</span>
+                  <span className="text-muted-foreground text-[11px]">Execution Speed:</span>
                   <span className="text-cyan-400">⚡ 1h 35m (Fast Execution)</span>
                 </div>
               </div>
 
               {selectedTradeInspection.notes && (
-                <div className="p-3 rounded-lg bg-background/60 border border-border/40">
+                <div className="p-2.5 rounded-lg bg-background/60 border border-border/40">
                   <span className="text-[10px] text-muted-foreground uppercase block mb-1">Strategy & Confluence Reason:</span>
                   <p className="text-xs text-foreground/90 italic">"{selectedTradeInspection.notes}"</p>
                 </div>

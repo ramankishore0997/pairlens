@@ -73,6 +73,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     tp3_price: '',
     leverage: '50',
     notes: '',
+    chart_image_url: '',
   })
   const [closeOutcome, setCloseOutcome] = useState<DbTrade['outcome']>('tp1')
   const [customExitPrice, setCustomExitPrice] = useState('')
@@ -166,6 +167,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
         tp3_price: tradeForm.tp3_price ? parseFloat(tradeForm.tp3_price) : undefined,
         leverage: tradeForm.leverage ? parseFloat(tradeForm.leverage) : 1,
         notes: tradeForm.notes,
+        chart_image_url: tradeForm.chart_image_url.trim() || undefined,
         status: 'active',
         outcome: 'open',
       })
@@ -183,6 +185,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
         tp3_price: '',
         leverage: '50',
         notes: '',
+        chart_image_url: '',
       })
     } catch (err) {
       toast.error('Failed to post trade')
@@ -951,6 +954,21 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                 onChange={(e) => setTradeForm({ ...tradeForm, notes: e.target.value })}
                 className="text-xs"
               />
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-cyan-400 mb-1 block">
+                📸 Trade Setup Chart Screenshot (Paste Image URL / Link - Optional)
+              </label>
+              <Input
+                placeholder="https://i.imgur.com/... or https://www.tradingview.com/x/..."
+                value={tradeForm.chart_image_url}
+                onChange={(e) => setTradeForm({ ...tradeForm, chart_image_url: e.target.value })}
+                className="font-mono text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Leave blank to automatically generate dynamic vector candlestick chart proof with Entry, SL, and TP zones.
+              </p>
             </div>
 
             <DialogFooter className="pt-3">

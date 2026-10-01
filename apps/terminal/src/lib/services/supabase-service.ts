@@ -31,6 +31,7 @@ export type DbTrade = {
   current_price?: number
   leverage?: number
   notes?: string
+  chart_image_url?: string
   status: 'active' | 'closed'
   outcome: 'open' | 'tp1' | 'tp2' | 'tp3' | 'sl' | 'manual'
   pnl_percent?: number
