@@ -195,7 +195,7 @@ export function CryptoCheckoutModal({
                     VIP 6 Months <Badge className="text-[9px] bg-sky-500/20 text-sky-400 font-mono">SAVE 66%</Badge>
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5 font-sans">
-                    6 Months Live Signals + Telegram Bot Alerts
+                    6 Months Live Signals + Priority Setup Alerts
                   </div>
                 </div>
                 <div className="text-right">
@@ -427,33 +427,23 @@ export function CryptoCheckoutModal({
               </p>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-sky-500/10 border border-sky-500/30 text-left space-y-2">
-              <div className="flex items-center gap-2 text-sky-400 font-bold text-xs">
-                <Send className="size-4" /> Next Step: Join Private VIP Telegram
+            <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-left space-y-2">
+              <div className="flex items-center gap-2 text-cyan-400 font-bold text-xs">
+                <Sparkles className="size-4" /> Live Institutional Signals Activated
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Connect directly to our VIP Telegram bot channel to receive 0.1s instant push alerts for every trade setup, entry trigger, and take-profit hit on your mobile device.
+                Your VIP subscription is now live. All real-time Forex, Gold & Crypto trade setups, precise Entry zones, Stop Loss, and 3 Target ladders are streaming on your terminal dashboard.
               </p>
-              <Button
-                type="button"
-                onClick={() =>
-                  window.open(
-                    settings?.telegram_config?.invite_link || 'https://t.me/pairlens_vip_alerts',
-                    '_blank'
-                  )
-                }
-                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold h-9 text-xs gap-1.5 shadow-md shadow-sky-500/20 mt-1"
-              >
-                <Send className="size-3.5" /> Join VIP Telegram Channel Now
-              </Button>
             </div>
 
             <Button
-              onClick={() => onOpenChange(false)}
-              variant="outline"
-              className="w-full font-mono text-xs h-9"
+              onClick={() => {
+                onOpenChange(false)
+                if (onSuccess) onSuccess()
+              }}
+              className="w-full bg-gradient-to-r from-cyan-500 via-teal-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black font-mono text-xs h-10 shadow-lg shadow-cyan-500/25"
             >
-              Continue to Terminal
+              Launch VIP Live Signals Stream <ArrowRight className="size-3.5 ml-1" />
             </Button>
           </div>
         )}

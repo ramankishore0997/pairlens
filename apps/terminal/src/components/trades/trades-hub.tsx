@@ -105,7 +105,6 @@ export function TradesHub() {
   const [selectedTradeInspection, setSelectedTradeInspection] = useState<TradeSignal | null>(null)
   const [lotCalcTrade, setLotCalcTrade] = useState<TradeSignal | null>(null)
   const [copiedTradeId, setCopiedTradeId] = useState<string | null>(null)
-  const [telegramInviteLink, setTelegramInviteLink] = useState('https://t.me/pairlens_vip_alerts')
   const [soundMuted, setSoundMuted] = useState(() => {
     try {
       return soundAlertService.isMuted()
@@ -116,16 +115,6 @@ export function TradesHub() {
 
   const isInitialLoadRef = useRef(true)
   const prevActiveCountRef = useRef(0)
-
-  // Load telegram channel link from Supabase settings
-  useEffect(() => {
-    void SupabaseDataService.getSettings().then((s) => {
-      if (s?.telegram_config?.invite_link) {
-        setTelegramInviteLink(s.telegram_config.invite_link)
-      }
-    })
-  }, [])
-
   const toggleSound = () => {
     const next = soundAlertService.toggleMute()
     setSoundMuted(next)
@@ -440,16 +429,6 @@ export function TradesHub() {
               <span className="hidden sm:inline">{soundMuted ? 'Muted' : 'Alerts ON'}</span>
             </Button>
 
-            {/* Telegram Alerts Button */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => window.open(telegramInviteLink, '_blank')}
-              className="h-7 text-xs font-mono border-sky-500/40 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 font-bold gap-1 px-2.5 shadow-xs shadow-sky-500/10"
-              title="Join Telegram VIP Signals Channel"
-            >
-              <Send className="size-3 text-sky-400" /> Telegram Alerts
-            </Button>
 
             {/* VIP Upgrade Button */}
             <Button
@@ -493,14 +472,14 @@ export function TradesHub() {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-2 mb-3">
-                  <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-300 font-mono text-xs px-3 py-1">
-                    <Sparkles className="size-3 mr-1 text-amber-400" /> VIP INSTITUTIONAL SIGNALS STREAM
+                  <Badge variant="outline" className="border-cyan-500/50 bg-cyan-500/10 text-cyan-300 font-mono text-xs px-3 py-1">
+                    <Sparkles className="size-3 mr-1 text-cyan-400" /> VIP INSTITUTIONAL SIGNALS STREAM
                   </Badge>
-                  <Badge variant="outline" className="border-sky-500/50 bg-sky-500/10 text-sky-300 font-mono text-[11px] px-2.5 py-1">
-                    <Send className="size-3 mr-1 text-sky-400" /> TELEGRAM BOT PUSHES
+                  <Badge variant="outline" className="border-emerald-500/50 bg-emerald-500/10 text-emerald-300 font-mono text-[11px] px-2.5 py-1">
+                    <Target className="size-3 mr-1 text-emerald-400" /> 1:3.5+ R:R ACCURACY
                   </Badge>
-                  <Badge variant="outline" className="border-cyan-500/50 bg-cyan-500/10 text-cyan-300 font-mono text-[11px] px-2.5 py-1">
-                    <Flame className="size-3 mr-1 text-cyan-400" /> 0-SECOND EXECUTION
+                  <Badge variant="outline" className="border-blue-500/50 bg-blue-500/10 text-blue-300 font-mono text-[11px] px-2.5 py-1">
+                    <Flame className="size-3 mr-1 text-blue-400" /> 0-SECOND EXECUTION
                   </Badge>
                 </div>
 
@@ -509,7 +488,7 @@ export function TradesHub() {
                 </h2>
 
                 <p className="text-sm text-muted-foreground leading-relaxed mb-6 max-w-2xl">
-                  Active trade setups with exact mathematical Entry Prices, tight Stop Losses, and 3 Take-Profit target ladders are streaming live for VIP members with instant Telegram bot alerts.
+                  Active trade setups with exact mathematical Entry Prices, tight Stop Losses, and 3 Take-Profit target ladders are streaming live for VIP members with sub-second terminal updates.
                 </p>
 
                 {/* Value Propositions 4-Grid */}
@@ -524,11 +503,11 @@ export function TradesHub() {
                   </div>
 
                   <div className="p-3 rounded-xl bg-background/60 border border-border/40 backdrop-blur-xs">
-                    <div className="flex items-center gap-2 text-sky-400 font-mono text-xs font-bold mb-1">
-                      <Send className="size-3.5" /> Telegram VIP Bot
+                    <div className="flex items-center gap-2 text-blue-400 font-mono text-xs font-bold mb-1">
+                      <Sparkles className="size-3.5" /> High Confluence Setups
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      Auto-broadcast to Telegram channel with chart screenshot & target triggers.
+                      Algorithmic liquidity sweeps, fair value gap fills & EMA confluence.
                     </div>
                   </div>
 
@@ -559,15 +538,6 @@ export function TradesHub() {
                     className="w-full sm:w-auto bg-gradient-to-r from-cyan-500 via-teal-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black font-mono px-8 shadow-lg shadow-cyan-500/25 h-11 text-sm tracking-wide"
                   >
                     <Sparkles className="size-4 mr-2" /> Unlock VIP Live Signals ($99/mo)
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    onClick={() => window.open(telegramInviteLink, '_blank')}
-                    className="w-full sm:w-auto font-mono text-xs h-11 border-sky-500/40 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 gap-2"
-                  >
-                    <Send className="size-4 text-sky-400" /> Join Telegram VIP Channel
                   </Button>
 
                   <Button

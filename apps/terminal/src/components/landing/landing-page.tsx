@@ -366,7 +366,7 @@ export function LandingPage({
                     <Check className="size-3.5 text-emerald-400" /> Full Pro Charting Suite
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="size-3.5 text-emerald-400" /> Telegram Bot Alerts
+                    <Check className="size-3.5 text-emerald-400" /> Real-Time Sound & Visual Alerts
                   </li>
                 </ul>
               </div>
@@ -405,7 +405,7 @@ export function LandingPage({
                     <Check className="size-3.5 text-sky-400" /> Priority Signal Delivery
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="size-3.5 text-sky-400" /> VIP Private Telegram Bot
+                    <Check className="size-3.5 text-sky-400" /> High-Speed Priority Stream
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="size-3.5 text-sky-400" /> Full Pro Terminal Suite
@@ -486,7 +486,7 @@ export function LandingPage({
                     <Check className="size-3.5 text-amber-400" /> Custom Indicator Scripts
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="size-3.5 text-amber-400" /> VIP Elite Discord & TG
+                    <Check className="size-3.5 text-amber-400" /> VIP Elite Private Community
                   </li>
                 </ul>
               </div>
