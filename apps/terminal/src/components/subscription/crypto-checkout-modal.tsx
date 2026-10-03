@@ -31,12 +31,12 @@ import {
 import { toast } from 'sonner'
 import { SupabaseDataService, DbSettings } from '@/lib/services/supabase-service'
 
-export type SubscriptionPlan = 'monthly' | 'yearly' | 'lifetime'
+export type SubscriptionPlan = '6months' | 'yearly' | 'lifetime' | 'monthly'
 
 export function CryptoCheckoutModal({
   open,
   onOpenChange,
-  initialPlan = 'monthly',
+  initialPlan = '6months',
   onSuccess,
 }: {
   open: boolean
@@ -44,7 +44,9 @@ export function CryptoCheckoutModal({
   initialPlan?: SubscriptionPlan
   onSuccess?: () => void
 }) {
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>(initialPlan)
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>(
+    initialPlan === 'monthly' ? '6months' : initialPlan
+  )
   const [selectedChain, setSelectedChain] = useState<'TRC20' | 'BEP20'>('TRC20')
   const [settings, setSettings] = useState<DbSettings | null>(null)
   const [copied, setCopied] = useState(false)
@@ -64,13 +66,14 @@ export function CryptoCheckoutModal({
   }, [open])
 
   useEffect(() => {
-    setSelectedPlan(initialPlan)
+    setSelectedPlan(initialPlan === 'monthly' ? '6months' : initialPlan)
   }, [initialPlan])
 
-  const planPrices = {
-    monthly: settings?.pricing_plans?.pro_monthly ?? 29,
-    yearly: settings?.pricing_plans?.pro_yearly ?? 199,
-    lifetime: settings?.pricing_plans?.vip_lifetime ?? 499,
+  const planPrices: Record<SubscriptionPlan, number> = {
+    '6months': settings?.pricing_plans?.pro_monthly ?? 200,
+    monthly: settings?.pricing_plans?.pro_monthly ?? 200,
+    yearly: settings?.pricing_plans?.pro_yearly ?? 400,
+    lifetime: settings?.pricing_plans?.vip_lifetime ?? 699,
   }
 
   const walletAddresses = {
@@ -157,26 +160,26 @@ export function CryptoCheckoutModal({
 
             {/* Plan Cards */}
             <div className="space-y-3 mb-5">
-              {/* Monthly */}
+              {/* 6 Months */}
               <div
-                onClick={() => setSelectedPlan('monthly')}
+                onClick={() => setSelectedPlan('6months')}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-                  selectedPlan === 'monthly'
+                  selectedPlan === '6months' || selectedPlan === 'monthly'
                     ? 'border-cyan-500 bg-cyan-500/10 shadow-sm shadow-cyan-500/10'
                     : 'border-border/60 hover:border-border bg-background/50'
                 }`}
               >
                 <div>
                   <div className="font-bold text-sm text-foreground flex items-center gap-2">
-                    Pro Monthly
+                    VIP 6 Months <Badge className="text-[9px] bg-cyan-500/20 text-cyan-400 font-mono">MINIMUM PLAN</Badge>
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    Live Signals + Automated TP/SL Tracking
+                    6 Months Live Signals + Entry, SL & 3 TP Targets
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-mono text-lg font-bold text-cyan-400">${planPrices.monthly}</div>
-                  <div className="text-[10px] text-muted-foreground font-mono">USDT / Month</div>
+                  <div className="font-mono text-lg font-bold text-cyan-400">${planPrices['6months']}</div>
+                  <div className="text-[10px] text-muted-foreground font-mono">USDT / 6 Months</div>
                 </div>
               </div>
 
@@ -191,15 +194,15 @@ export function CryptoCheckoutModal({
               >
                 <div>
                   <div className="font-bold text-sm text-foreground flex items-center gap-2">
-                    Pro Yearly <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 font-mono">SAVE 45%</Badge>
+                    VIP 1 Year <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 font-mono">BEST VALUE</Badge>
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    12 Months VIP Access + Priority Feeds
+                    12 Months VIP Access + Dedicated Analyst Group
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="font-mono text-lg font-bold text-emerald-400">${planPrices.yearly}</div>
-                  <div className="text-[10px] text-muted-foreground font-mono">USDT / Year</div>
+                  <div className="text-[10px] text-muted-foreground font-mono">USDT / 1 Year</div>
                 </div>
               </div>
 

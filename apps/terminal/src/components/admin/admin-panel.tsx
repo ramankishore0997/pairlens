@@ -135,7 +135,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     status: 'active' as 'active' | 'pending',
     chain: 'TRC20',
     tx_hash: '',
-    amount_usdt: '29',
+    amount_usdt: '200',
   })
 
   // Settings form state
@@ -144,9 +144,9 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     usdt_bep20: '',
   })
   const [pricingForm, setPricingForm] = useState({
-    pro_monthly: 29,
-    pro_yearly: 199,
-    vip_lifetime: 499,
+    pro_monthly: 200,
+    pro_yearly: 400,
+    vip_lifetime: 699,
   })
   const [telegramForm, setTelegramForm] = useState({
     bot_token: '',
@@ -985,25 +985,25 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="text-xs font-mono text-muted-foreground block mb-1">
-                  Pro Monthly ($)
+                  VIP 6 Months ($)
                 </label>
                 <Input
                   type="number"
                   value={pricingForm.pro_monthly}
                   onChange={(e) => setPricingForm({ ...pricingForm, pro_monthly: parseFloat(e.target.value) || 0 })}
-                  className="font-mono font-bold"
+                  className="font-mono font-bold text-cyan-400"
                 />
               </div>
 
               <div>
                 <label className="text-xs font-mono text-muted-foreground block mb-1">
-                  Pro Yearly ($)
+                  VIP 1 Year ($)
                 </label>
                 <Input
                   type="number"
                   value={pricingForm.pro_yearly}
                   onChange={(e) => setPricingForm({ ...pricingForm, pro_yearly: parseFloat(e.target.value) || 0 })}
-                  className="font-mono font-bold"
+                  className="font-mono font-bold text-emerald-400"
                 />
               </div>
 
@@ -1711,11 +1711,15 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Plan</label>
                 <select
                   value={customerForm.plan}
-                  onChange={(e) => setCustomerForm({ ...customerForm, plan: e.target.value as any })}
+                  onChange={(e) => {
+                    const nextPlan = e.target.value as 'pro' | 'vip'
+                    const nextAmount = nextPlan === 'vip' ? '699' : '200'
+                    setCustomerForm({ ...customerForm, plan: nextPlan, amount_usdt: nextAmount })
+                  }}
                   className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs"
                 >
-                  <option value="pro">Pro Trader ($29/mo)</option>
-                  <option value="vip">VIP Lifetime ($499)</option>
+                  <option value="pro">VIP 6 Months ($200)</option>
+                  <option value="vip">VIP Lifetime ($699)</option>
                 </select>
               </div>
 

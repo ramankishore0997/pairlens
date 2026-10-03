@@ -89,9 +89,9 @@ const DEFAULT_SETTINGS: DbSettings = {
     usdt_bep20: '0x71C8360f3a8b4FaA5cD4eA9F8E19cD61e4A58249',
   },
   pricing_plans: {
-    pro_monthly: 29,
-    pro_yearly: 199,
-    vip_lifetime: 499,
+    pro_monthly: 200,
+    pro_yearly: 400,
+    vip_lifetime: 699,
   },
   telegram_config: {
     bot_token: '',
@@ -678,7 +678,9 @@ export const SupabaseDataService = {
         sub.expires_at ||
         (sub.plan === 'vip'
           ? new Date(Date.now() + 86400000 * 365 * 10).toISOString()
-          : new Date(Date.now() + 86400000 * 30).toISOString()),
+          : (sub.amount_usdt && sub.amount_usdt >= 350)
+            ? new Date(Date.now() + 86400000 * 365).toISOString()
+            : new Date(Date.now() + 86400000 * 180).toISOString()),
     }
 
     try {

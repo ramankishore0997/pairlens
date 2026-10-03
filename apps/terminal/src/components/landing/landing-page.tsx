@@ -35,7 +35,7 @@ export function LandingPage({
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<DbUser | null>(null)
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('monthly')
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('6months')
   const [adminOpen, setAdminOpen] = useState(false)
   const [trades, setTrades] = useState<Array<DbTrade>>([])
   const [settings, setSettings] = useState<DbSettings | null>(null)
@@ -58,9 +58,9 @@ export function LandingPage({
   }
 
   const prices = {
-    monthly: settings?.pricing_plans?.pro_monthly ?? 29,
-    yearly: settings?.pricing_plans?.pro_yearly ?? 199,
-    lifetime: settings?.pricing_plans?.vip_lifetime ?? 499,
+    sixMonths: settings?.pricing_plans?.pro_monthly ?? 200,
+    yearly: settings?.pricing_plans?.pro_yearly ?? 400,
+    lifetime: settings?.pricing_plans?.vip_lifetime ?? 699,
   }
 
   return (
@@ -196,10 +196,10 @@ export function LandingPage({
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
             <Button
               size="lg"
-              onClick={() => handleOpenCheckout('monthly')}
+              onClick={() => handleOpenCheckout('6months')}
               className="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-500 text-white font-bold h-12 px-8 text-sm gap-2 shadow-xl shadow-cyan-500/20"
             >
-              Get VIP Access (${prices.monthly}/mo) <ArrowRight className="size-4" />
+              Get VIP Access (${prices.sixMonths} / 6 Mo) <ArrowRight className="size-4" />
             </Button>
 
             <Button
@@ -309,7 +309,7 @@ export function LandingPage({
                     </span>
                     <Button
                       size="sm"
-                      onClick={() => handleOpenCheckout('monthly')}
+                      onClick={() => handleOpenCheckout('6months')}
                       className="h-7 text-[11px] bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600 hover:text-white font-bold"
                     >
                       Get VIP Alerts
@@ -341,72 +341,77 @@ export function LandingPage({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Monthly */}
+            {/* 6 Months */}
             <div className="rounded-2xl border border-border/80 bg-card/60 p-7 flex flex-col justify-between hover:border-border transition-all">
               <div>
-                <h3 className="text-lg font-bold text-foreground">Pro Monthly</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-foreground">VIP 6 Months</h3>
+                  <Badge variant="outline" className="text-[10px] border-cyan-500/40 text-cyan-400 font-mono">
+                    MINIMUM PLAN
+                  </Badge>
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Ideal for active traders seeking daily high-probability setups.
+                  6-Month full access to daily Forex, Gold & Crypto high-probability setups.
                 </p>
 
                 <div className="mt-6 mb-6">
-                  <span className="font-mono text-4xl font-black text-foreground">${prices.monthly}</span>
-                  <span className="text-xs text-muted-foreground font-mono"> / USDT monthly</span>
+                  <span className="font-mono text-4xl font-black text-foreground">${prices.sixMonths}</span>
+                  <span className="text-xs text-muted-foreground font-mono"> / USDT for 6 Mo</span>
                 </div>
 
                 <ul className="space-y-3 text-xs text-muted-foreground">
                   <li className="flex items-center gap-2">
-                    <Check className="size-4 text-emerald-400" /> All Daily Forex & Gold Signals
+                    <Check className="size-4 text-emerald-400" /> All Daily Forex, Gold & Crypto Signals
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-emerald-400" /> Entry, SL & 3 Target Levels
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="size-4 text-emerald-400" /> Full Pro Charting Suite
+                    <Check className="size-4 text-emerald-400" /> Full Pro Charting & Terminal Suite
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="size-4 text-emerald-400" /> Instant In-App Notifications
+                    <Check className="size-4 text-emerald-400" /> VIP Telegram Bot Push Alerts
                   </li>
                 </ul>
               </div>
 
               <Button
-                onClick={() => handleOpenCheckout('monthly')}
+                onClick={() => handleOpenCheckout('6months')}
                 className="w-full mt-8 bg-card border border-border/80 hover:bg-accent text-foreground font-bold h-11 text-xs"
               >
-                Pay ${prices.monthly} USDT
+                Pay ${prices.sixMonths} USDT (6 Months)
               </Button>
             </div>
 
             {/* Yearly - Highlighted */}
             <div className="rounded-2xl border-2 border-cyan-500 bg-card/80 p-7 flex flex-col justify-between relative shadow-xl shadow-cyan-500/10">
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-cyan-500 text-slate-950 font-black text-[10px] tracking-wider uppercase px-3.5 py-1 rounded-full">
-                Most Popular · Save 45%
+                Most Popular · Save 33%
               </div>
 
               <div>
-                <h3 className="text-lg font-bold text-foreground">Pro Yearly</h3>
+                <h3 className="text-lg font-bold text-foreground">VIP 1 Year</h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Full 12-month uninterrupted access with VIP priority alerts.
+                  Full 12-month uninterrupted access with VIP priority alerts and group support.
                 </p>
 
                 <div className="mt-6 mb-6">
                   <span className="font-mono text-4xl font-black text-cyan-400">${prices.yearly}</span>
-                  <span className="text-xs text-muted-foreground font-mono"> / USDT yearly</span>
+                  <span className="text-xs text-muted-foreground font-mono"> / USDT 1 Year</span>
                 </div>
 
                 <ul className="space-y-3 text-xs text-muted-foreground">
                   <li className="flex items-center gap-2 text-foreground font-medium">
-                    <Check className="size-4 text-cyan-400" /> Everything in Monthly Plan
+                    <Check className="size-4 text-cyan-400" /> Everything in 6-Month Plan
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-cyan-400" /> VIP Private Telegram Group Access
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="size-4 text-cyan-400" /> Weekly Market Analysis & Forecasts
+                    <Check className="size-4 text-cyan-400" /> Weekly Institutional Analysis & Forecasts
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="size-4 text-cyan-400" /> 24/7 Priority Support
+                    <Check className="size-4 text-cyan-400" /> 24/7 Priority Support Desk
                   </li>
                 </ul>
               </div>
@@ -415,7 +420,7 @@ export function LandingPage({
                 onClick={() => handleOpenCheckout('yearly')}
                 className="w-full mt-8 bg-cyan-600 hover:bg-cyan-500 text-white font-bold h-11 text-xs shadow-lg shadow-cyan-500/20"
               >
-                Pay ${prices.yearly} USDT with Crypto
+                Pay ${prices.yearly} USDT with Crypto (1 Year)
               </Button>
             </div>
 
@@ -424,7 +429,7 @@ export function LandingPage({
               <div>
                 <h3 className="text-lg font-bold text-foreground">VIP Lifetime</h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  One-time payment. Never pay monthly fees again.
+                  One-time payment. Never pay subscription fees again.
                 </p>
 
                 <div className="mt-6 mb-6">
@@ -440,10 +445,10 @@ export function LandingPage({
                     <Check className="size-4 text-amber-400" /> Direct Access to Senior Analysts
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="size-4 text-amber-400" /> Custom Indicator Scripts
+                    <Check className="size-4 text-amber-400" /> Custom Indicator Scripts & Setups
                   </li>
                   <li className="flex items-center gap-2">
-                    <Check className="size-4 text-amber-400" /> VIP Elite Discord Channel
+                    <Check className="size-4 text-amber-400" /> VIP Elite Discord & Telegram
                   </li>
                 </ul>
               </div>
