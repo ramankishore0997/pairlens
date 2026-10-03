@@ -750,23 +750,20 @@ export const SupabaseDataService = {
           if (row.key === 'telegram_config') merged.telegram_config = row.value
         })
 
-        // Auto-migrate & sanitize legacy pricing (e.g. old $29 / $199 / $499 or $100/$200) to clean $99 / $199 / $399 / $699
-        if (
-          !merged.pricing_plans ||
-          !merged.pricing_plans.pro_monthly ||
-          merged.pricing_plans.pro_monthly < 99 ||
-          !merged.pricing_plans.pro_6months ||
-          merged.pricing_plans.pro_6months < 199 ||
-          !merged.pricing_plans.pro_yearly ||
-          merged.pricing_plans.pro_yearly < 399 ||
-          !merged.pricing_plans.vip_lifetime ||
-          merged.pricing_plans.vip_lifetime < 699
-        ) {
+        // Strict validation for current pricing tiers: $99 / $199 / $399 / $699
+        const isStandardPricing =
+          merged.pricing_plans &&
+          merged.pricing_plans.pro_monthly === 99 &&
+          merged.pricing_plans.pro_6months === 199 &&
+          merged.pricing_plans.pro_yearly === 399 &&
+          merged.pricing_plans.vip_lifetime === 699
+
+        if (!isStandardPricing) {
           merged.pricing_plans = {
-            pro_monthly: merged.pricing_plans?.pro_monthly && merged.pricing_plans.pro_monthly >= 99 ? merged.pricing_plans.pro_monthly : 99,
-            pro_6months: merged.pricing_plans?.pro_6months && merged.pricing_plans.pro_6months >= 199 ? merged.pricing_plans.pro_6months : 199,
-            pro_yearly: merged.pricing_plans?.pro_yearly && merged.pricing_plans.pro_yearly >= 399 ? merged.pricing_plans.pro_yearly : 399,
-            vip_lifetime: merged.pricing_plans?.vip_lifetime && merged.pricing_plans.vip_lifetime >= 699 ? merged.pricing_plans.vip_lifetime : 699,
+            pro_monthly: 99,
+            pro_6months: 199,
+            pro_yearly: 399,
+            vip_lifetime: 699,
           }
           void supabase.from('admin_settings').upsert([
             { key: 'pricing_plans', value: merged.pricing_plans, updated_at: new Date().toISOString() },
@@ -784,8 +781,10 @@ export const SupabaseDataService = {
         const parsed = JSON.parse(cached)
         if (
           !parsed.pricing_plans ||
-          parsed.pricing_plans.pro_monthly < 99 ||
-          parsed.pricing_plans.pro_yearly < 399
+          parsed.pricing_plans.pro_monthly !== 99 ||
+          parsed.pricing_plans.pro_6months !== 199 ||
+          parsed.pricing_plans.pro_yearly !== 399 ||
+          parsed.pricing_plans.vip_lifetime !== 699
         ) {
           parsed.pricing_plans = { ...DEFAULT_SETTINGS.pricing_plans }
           safeStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(parsed))

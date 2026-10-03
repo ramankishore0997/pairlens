@@ -556,7 +556,7 @@ export function TradesHub() {
                   <Button
                     size="lg"
                     onClick={() => setCheckoutModalOpen(true)}
-                    className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold font-mono px-8 shadow-lg shadow-amber-500/25 h-11"
+                    className="w-full sm:w-auto bg-gradient-to-r from-cyan-500 via-teal-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black font-mono px-8 shadow-lg shadow-cyan-500/25 h-11 text-sm tracking-wide"
                   >
                     <Sparkles className="size-4 mr-2" /> Unlock VIP Live Signals ($99/mo)
                   </Button>
@@ -893,7 +893,7 @@ export function TradesHub() {
                 setSelectedTradeInspection(null)
                 setCheckoutModalOpen(true)
               }}
-              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold font-mono text-xs h-10 shadow-lg shadow-amber-500/20"
+              className="w-full bg-gradient-to-r from-cyan-500 via-teal-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black font-mono text-xs h-10 shadow-lg shadow-cyan-500/25 tracking-wide"
             >
               <Sparkles className="size-3.5 mr-1.5" /> Unlock Real-Time Signals Live ($99/mo)
             </Button>

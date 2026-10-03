@@ -68,9 +68,9 @@ export function CryptoCheckoutModal({
   }, [initialPlan])
 
   const planPrices: Record<SubscriptionPlan, number> = {
-    monthly: settings?.pricing_plans?.pro_monthly ?? 100,
-    '6months': settings?.pricing_plans?.pro_6months ?? 200,
-    yearly: settings?.pricing_plans?.pro_yearly ?? 400,
+    monthly: settings?.pricing_plans?.pro_monthly ?? 99,
+    '6months': settings?.pricing_plans?.pro_6months ?? 199,
+    yearly: settings?.pricing_plans?.pro_yearly ?? 399,
     lifetime: settings?.pricing_plans?.vip_lifetime ?? 699,
   }
 
@@ -141,42 +141,42 @@ export function CryptoCheckoutModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-6 bg-card border-border/80 shadow-2xl shadow-black/80 rounded-2xl">
+      <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto p-6 bg-card/95 border-border/80 shadow-2xl shadow-black/90 rounded-2xl backdrop-blur-xl">
         {step === 'SELECT' && (
           <div>
             <DialogHeader className="mb-4 text-center">
-              <div className="size-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-black text-xl mx-auto shadow-lg shadow-amber-500/20 mb-2">
-                <Sparkles className="size-6" />
+              <div className="size-11 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-lg mx-auto shadow-lg shadow-cyan-500/25 mb-2.5">
+                <Sparkles className="size-5" />
               </div>
-              <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
-                VIP Signals & Institutional Edge
+              <DialogTitle className="text-xl font-bold tracking-tight text-foreground font-mono">
+                VIP Signals & Institutional Suite
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Get real-time Forex, Commodities & Crypto trade signals with precise Entry, Stop Loss, and 3 Target Levels.
+                Real-time Forex, Gold & Crypto trade signals with precise Entry, Stop Loss, and 3 Target Levels.
               </DialogDescription>
             </DialogHeader>
 
             {/* Plan Cards */}
-            <div className="space-y-2.5 mb-5">
+            <div className="space-y-2.5 mb-5 font-mono">
               {/* Monthly */}
               <div
                 onClick={() => setSelectedPlan('monthly')}
-                className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
                   selectedPlan === 'monthly'
-                    ? 'border-cyan-500 bg-cyan-500/10 shadow-sm shadow-cyan-500/10'
-                    : 'border-border/60 hover:border-border bg-background/50'
+                    ? 'border-cyan-500 bg-cyan-500/10 shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/40'
+                    : 'border-border/60 hover:border-border/90 bg-card/40'
                 }`}
               >
                 <div>
                   <div className="font-bold text-sm text-foreground flex items-center gap-2">
                     VIP Monthly
                   </div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                  <div className="text-[11px] text-muted-foreground mt-0.5 font-sans">
                     30 Days Live Signals + Entry, SL & 3 TP Targets
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-mono text-lg font-bold text-cyan-400">${planPrices.monthly}</div>
+                  <div className="font-mono text-xl font-black text-cyan-400">${planPrices.monthly}</div>
                   <div className="text-[10px] text-muted-foreground font-mono">USDT / Month</div>
                 </div>
               </div>
@@ -184,22 +184,22 @@ export function CryptoCheckoutModal({
               {/* 6 Months */}
               <div
                 onClick={() => setSelectedPlan('6months')}
-                className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
                   selectedPlan === '6months'
-                    ? 'border-sky-500 bg-sky-500/10 shadow-sm shadow-sky-500/10'
-                    : 'border-border/60 hover:border-border bg-background/50'
+                    ? 'border-sky-500 bg-sky-500/10 shadow-[0_0_15px_rgba(14,165,233,0.15)] ring-1 ring-sky-500/40'
+                    : 'border-border/60 hover:border-border/90 bg-card/40'
                 }`}
               >
                 <div>
                   <div className="font-bold text-sm text-foreground flex items-center gap-2">
                     VIP 6 Months <Badge className="text-[9px] bg-sky-500/20 text-sky-400 font-mono">SAVE 66%</Badge>
                   </div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                  <div className="text-[11px] text-muted-foreground mt-0.5 font-sans">
                     6 Months Live Signals + Telegram Bot Alerts
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-mono text-lg font-bold text-sky-400">${planPrices['6months']}</div>
+                  <div className="font-mono text-xl font-black text-sky-400">${planPrices['6months']}</div>
                   <div className="text-[10px] text-muted-foreground font-mono">USDT / 6 Mo</div>
                 </div>
               </div>
@@ -207,22 +207,22 @@ export function CryptoCheckoutModal({
               {/* Yearly */}
               <div
                 onClick={() => setSelectedPlan('yearly')}
-                className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
                   selectedPlan === 'yearly'
-                    ? 'border-emerald-500 bg-emerald-500/10 shadow-sm shadow-emerald-500/10'
-                    : 'border-border/60 hover:border-border bg-background/50'
+                    ? 'border-emerald-500 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/40'
+                    : 'border-border/60 hover:border-border/90 bg-card/40'
                 }`}
               >
                 <div>
                   <div className="font-bold text-sm text-foreground flex items-center gap-2">
                     VIP 1 Year <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400 font-mono">BEST VALUE</Badge>
                   </div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                  <div className="text-[11px] text-muted-foreground mt-0.5 font-sans">
                     12 Months VIP Access + Dedicated Analyst Group
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-mono text-lg font-bold text-emerald-400">${planPrices.yearly}</div>
+                  <div className="font-mono text-xl font-black text-emerald-400">${planPrices.yearly}</div>
                   <div className="text-[10px] text-muted-foreground font-mono">USDT / 1 Year</div>
                 </div>
               </div>
@@ -230,10 +230,10 @@ export function CryptoCheckoutModal({
               {/* Lifetime */}
               <div
                 onClick={() => setSelectedPlan('lifetime')}
-                className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between relative overflow-hidden ${
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between relative overflow-hidden ${
                   selectedPlan === 'lifetime'
-                    ? 'border-amber-500 bg-amber-500/10 shadow-sm shadow-amber-500/10 ring-1 ring-amber-500/30'
-                    : 'border-border/60 hover:border-border bg-background/50'
+                    ? 'border-amber-500 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.15)] ring-1 ring-amber-500/40'
+                    : 'border-border/60 hover:border-border/90 bg-card/40'
                 }`}
               >
                 <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-amber-600 text-black text-[9px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-wider">
@@ -243,19 +243,19 @@ export function CryptoCheckoutModal({
                   <div className="font-bold text-sm text-foreground flex items-center gap-2">
                     VIP Lifetime <Flame className="size-3.5 text-amber-400 fill-amber-400" />
                   </div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                  <div className="text-[11px] text-muted-foreground mt-0.5 font-sans">
                     Lifetime Access · Unlimited Signals · Never Pay Again
                   </div>
                 </div>
                 <div className="text-right pt-2">
-                  <div className="font-mono text-lg font-bold text-amber-400">${planPrices.lifetime}</div>
+                  <div className="font-mono text-xl font-black text-amber-400">${planPrices.lifetime}</div>
                   <div className="text-[10px] text-muted-foreground font-mono">USDT One-Time</div>
                 </div>
               </div>
             </div>
 
             {/* Feature Perks */}
-            <div className="grid grid-cols-2 gap-2 mb-5 p-3 rounded-xl bg-muted/40 border border-border/40 text-[11px] text-muted-foreground">
+            <div className="grid grid-cols-2 gap-2 mb-5 p-3 rounded-xl bg-card/60 border border-border/40 text-[11px] text-muted-foreground">
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="size-3.5 text-emerald-400 shrink-0" />
                 <span>Entry, SL & 3 TP Targets</span>
@@ -276,7 +276,7 @@ export function CryptoCheckoutModal({
 
             <Button
               onClick={() => setStep('PAY')}
-              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold h-11 gap-2 shadow-lg shadow-amber-500/20"
+              className="w-full bg-gradient-to-r from-cyan-500 via-teal-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black h-11 gap-2 shadow-lg shadow-cyan-500/25 font-mono text-sm tracking-wide"
             >
               Pay ${amountToPay} USDT via Crypto <ArrowRight className="size-4" />
             </Button>
@@ -299,8 +299,8 @@ export function CryptoCheckoutModal({
                   Step 2 of 2
                 </Badge>
               </div>
-              <DialogTitle className="text-lg font-bold mt-2">
-                Send <strong className="text-amber-400 font-mono">${amountToPay} USDT</strong>
+              <DialogTitle className="text-lg font-bold mt-2 font-mono">
+                Send <strong className="text-cyan-400 font-mono">${amountToPay} USDT</strong>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
                 Select your preferred blockchain network and send exact USDT amount.
