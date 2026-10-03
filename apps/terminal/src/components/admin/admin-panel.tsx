@@ -135,7 +135,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     status: 'active' as 'active' | 'pending',
     chain: 'TRC20',
     tx_hash: '',
-    amount_usdt: '200',
+    amount_usdt: '100',
   })
 
   // Settings form state
@@ -144,7 +144,8 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     usdt_bep20: '',
   })
   const [pricingForm, setPricingForm] = useState({
-    pro_monthly: 200,
+    pro_monthly: 100,
+    pro_6months: 200,
     pro_yearly: 400,
     vip_lifetime: 699,
   })
@@ -169,7 +170,12 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
       setSubscriptions(sData)
       setSettings(conf)
       setWalletsForm(conf.crypto_wallets)
-      setPricingForm(conf.pricing_plans)
+      setPricingForm({
+        pro_monthly: conf.pricing_plans.pro_monthly ?? 100,
+        pro_6months: conf.pricing_plans.pro_6months ?? 200,
+        pro_yearly: conf.pricing_plans.pro_yearly ?? 400,
+        vip_lifetime: conf.pricing_plans.vip_lifetime ?? 699,
+      })
       if (conf.telegram_config) {
         setTelegramForm({
           bot_token: conf.telegram_config.bot_token || '',
@@ -982,16 +988,28 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
               <DollarSign className="size-4 text-emerald-400" /> Subscription Pricing ($ USD / USDT)
             </h3>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
                 <label className="text-xs font-mono text-muted-foreground block mb-1">
-                  VIP 6 Months ($)
+                  VIP Monthly ($)
                 </label>
                 <Input
                   type="number"
                   value={pricingForm.pro_monthly}
                   onChange={(e) => setPricingForm({ ...pricingForm, pro_monthly: parseFloat(e.target.value) || 0 })}
                   className="font-mono font-bold text-cyan-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-mono text-muted-foreground block mb-1">
+                  VIP 6 Months ($)
+                </label>
+                <Input
+                  type="number"
+                  value={pricingForm.pro_6months ?? 200}
+                  onChange={(e) => setPricingForm({ ...pricingForm, pro_6months: parseFloat(e.target.value) || 0 })}
+                  className="font-mono font-bold text-sky-400"
                 />
               </div>
 
@@ -1712,13 +1730,19 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                 <select
                   value={customerForm.plan}
                   onChange={(e) => {
-                    const nextPlan = e.target.value as 'pro' | 'vip'
-                    const nextAmount = nextPlan === 'vip' ? '699' : '200'
+                    const nextVal = e.target.value
+                    const nextPlan: 'pro' | 'vip' = nextVal === 'vip' ? 'vip' : 'pro'
+                    let nextAmount = '100'
+                    if (nextVal === 'pro_6m') nextAmount = '200'
+                    if (nextVal === 'yearly') nextAmount = '400'
+                    if (nextVal === 'vip') nextAmount = '699'
                     setCustomerForm({ ...customerForm, plan: nextPlan, amount_usdt: nextAmount })
                   }}
                   className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs"
                 >
-                  <option value="pro">VIP 6 Months ($200)</option>
+                  <option value="pro">VIP Monthly ($100)</option>
+                  <option value="pro_6m">VIP 6 Months ($200)</option>
+                  <option value="yearly">VIP 1 Year ($400)</option>
                   <option value="vip">VIP Lifetime ($699)</option>
                 </select>
               </div>

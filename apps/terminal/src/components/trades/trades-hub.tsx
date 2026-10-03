@@ -558,7 +558,7 @@ export function TradesHub() {
                     onClick={() => setCheckoutModalOpen(true)}
                     className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold font-mono px-8 shadow-lg shadow-amber-500/25 h-11"
                   >
-                    <Sparkles className="size-4 mr-2" /> Unlock VIP Live Signals ($200 / 6 Mo)
+                    <Sparkles className="size-4 mr-2" /> Unlock VIP Live Signals ($100/mo)
                   </Button>
 
                   <Button
@@ -895,7 +895,7 @@ export function TradesHub() {
               }}
               className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold font-mono text-xs h-10 shadow-lg shadow-amber-500/20"
             >
-              <Sparkles className="size-3.5 mr-1.5" /> Unlock Real-Time Signals Live ($200 / 6 Mo)
+              <Sparkles className="size-3.5 mr-1.5" /> Unlock Real-Time Signals Live ($100/mo)
             </Button>
           </DialogContent>
         </Dialog>
@@ -905,7 +905,7 @@ export function TradesHub() {
       <CryptoCheckoutModal
         open={checkoutModalOpen}
         onOpenChange={setCheckoutModalOpen}
-        initialPlan="6months"
+        initialPlan="monthly"
       />
 
       {/* Position & Lot Size Calculator Modal */}

@@ -62,6 +62,7 @@ export type DbSettings = {
   }
   pricing_plans: {
     pro_monthly: number
+    pro_6months?: number
     pro_yearly: number
     vip_lifetime: number
   }
@@ -89,7 +90,8 @@ const DEFAULT_SETTINGS: DbSettings = {
     usdt_bep20: '0x71C8360f3a8b4FaA5cD4eA9F8E19cD61e4A58249',
   },
   pricing_plans: {
-    pro_monthly: 200,
+    pro_monthly: 100,
+    pro_6months: 200,
     pro_yearly: 400,
     vip_lifetime: 699,
   },
@@ -676,11 +678,13 @@ export const SupabaseDataService = {
       starts_at: sub.starts_at || new Date().toISOString(),
       expires_at:
         sub.expires_at ||
-        (sub.plan === 'vip'
+        (sub.plan === 'vip' || (sub.amount_usdt && sub.amount_usdt >= 600)
           ? new Date(Date.now() + 86400000 * 365 * 10).toISOString()
           : (sub.amount_usdt && sub.amount_usdt >= 350)
             ? new Date(Date.now() + 86400000 * 365).toISOString()
-            : new Date(Date.now() + 86400000 * 180).toISOString()),
+            : (sub.amount_usdt && sub.amount_usdt >= 180)
+              ? new Date(Date.now() + 86400000 * 180).toISOString()
+              : new Date(Date.now() + 86400000 * 30).toISOString()),
     }
 
     try {

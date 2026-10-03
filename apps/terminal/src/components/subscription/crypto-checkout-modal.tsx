@@ -31,12 +31,12 @@ import {
 import { toast } from 'sonner'
 import { SupabaseDataService, DbSettings } from '@/lib/services/supabase-service'
 
-export type SubscriptionPlan = '6months' | 'yearly' | 'lifetime' | 'monthly'
+export type SubscriptionPlan = 'monthly' | '6months' | 'yearly' | 'lifetime'
 
 export function CryptoCheckoutModal({
   open,
   onOpenChange,
-  initialPlan = '6months',
+  initialPlan = 'monthly',
   onSuccess,
 }: {
   open: boolean
@@ -44,9 +44,7 @@ export function CryptoCheckoutModal({
   initialPlan?: SubscriptionPlan
   onSuccess?: () => void
 }) {
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>(
-    initialPlan === 'monthly' ? '6months' : initialPlan
-  )
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>(initialPlan)
   const [selectedChain, setSelectedChain] = useState<'TRC20' | 'BEP20'>('TRC20')
   const [settings, setSettings] = useState<DbSettings | null>(null)
   const [copied, setCopied] = useState(false)
@@ -66,12 +64,12 @@ export function CryptoCheckoutModal({
   }, [open])
 
   useEffect(() => {
-    setSelectedPlan(initialPlan === 'monthly' ? '6months' : initialPlan)
+    setSelectedPlan(initialPlan)
   }, [initialPlan])
 
   const planPrices: Record<SubscriptionPlan, number> = {
-    '6months': settings?.pricing_plans?.pro_monthly ?? 200,
-    monthly: settings?.pricing_plans?.pro_monthly ?? 200,
+    monthly: settings?.pricing_plans?.pro_monthly ?? 100,
+    '6months': settings?.pricing_plans?.pro_6months ?? 200,
     yearly: settings?.pricing_plans?.pro_yearly ?? 400,
     lifetime: settings?.pricing_plans?.vip_lifetime ?? 699,
   }
@@ -143,7 +141,7 @@ export function CryptoCheckoutModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-6 bg-card border-border/80 shadow-2xl shadow-black/80 rounded-2xl">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-6 bg-card border-border/80 shadow-2xl shadow-black/80 rounded-2xl">
         {step === 'SELECT' && (
           <div>
             <DialogHeader className="mb-4 text-center">
@@ -159,34 +157,57 @@ export function CryptoCheckoutModal({
             </DialogHeader>
 
             {/* Plan Cards */}
-            <div className="space-y-3 mb-5">
-              {/* 6 Months */}
+            <div className="space-y-2.5 mb-5">
+              {/* Monthly */}
               <div
-                onClick={() => setSelectedPlan('6months')}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-                  selectedPlan === '6months' || selectedPlan === 'monthly'
+                onClick={() => setSelectedPlan('monthly')}
+                className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                  selectedPlan === 'monthly'
                     ? 'border-cyan-500 bg-cyan-500/10 shadow-sm shadow-cyan-500/10'
                     : 'border-border/60 hover:border-border bg-background/50'
                 }`}
               >
                 <div>
                   <div className="font-bold text-sm text-foreground flex items-center gap-2">
-                    VIP 6 Months <Badge className="text-[9px] bg-cyan-500/20 text-cyan-400 font-mono">MINIMUM PLAN</Badge>
+                    VIP Monthly
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    6 Months Live Signals + Entry, SL & 3 TP Targets
+                    30 Days Live Signals + Entry, SL & 3 TP Targets
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-mono text-lg font-bold text-cyan-400">${planPrices['6months']}</div>
-                  <div className="text-[10px] text-muted-foreground font-mono">USDT / 6 Months</div>
+                  <div className="font-mono text-lg font-bold text-cyan-400">${planPrices.monthly}</div>
+                  <div className="text-[10px] text-muted-foreground font-mono">USDT / Month</div>
+                </div>
+              </div>
+
+              {/* 6 Months */}
+              <div
+                onClick={() => setSelectedPlan('6months')}
+                className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                  selectedPlan === '6months'
+                    ? 'border-sky-500 bg-sky-500/10 shadow-sm shadow-sky-500/10'
+                    : 'border-border/60 hover:border-border bg-background/50'
+                }`}
+              >
+                <div>
+                  <div className="font-bold text-sm text-foreground flex items-center gap-2">
+                    VIP 6 Months <Badge className="text-[9px] bg-sky-500/20 text-sky-400 font-mono">SAVE 66%</Badge>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    6 Months Live Signals + Telegram Bot Alerts
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-mono text-lg font-bold text-sky-400">${planPrices['6months']}</div>
+                  <div className="text-[10px] text-muted-foreground font-mono">USDT / 6 Mo</div>
                 </div>
               </div>
 
               {/* Yearly */}
               <div
                 onClick={() => setSelectedPlan('yearly')}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
                   selectedPlan === 'yearly'
                     ? 'border-emerald-500 bg-emerald-500/10 shadow-sm shadow-emerald-500/10'
                     : 'border-border/60 hover:border-border bg-background/50'
@@ -209,7 +230,7 @@ export function CryptoCheckoutModal({
               {/* Lifetime */}
               <div
                 onClick={() => setSelectedPlan('lifetime')}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between relative overflow-hidden ${
+                className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between relative overflow-hidden ${
                   selectedPlan === 'lifetime'
                     ? 'border-amber-500 bg-amber-500/10 shadow-sm shadow-amber-500/10 ring-1 ring-amber-500/30'
                     : 'border-border/60 hover:border-border bg-background/50'
