@@ -749,6 +749,30 @@ export const SupabaseDataService = {
           if (row.key === 'admin_credentials') merged.admin_credentials = row.value
           if (row.key === 'telegram_config') merged.telegram_config = row.value
         })
+
+        // Auto-migrate & sanitize legacy pricing (e.g. old $29 / $199 / $499) to new $100 / $200 / $400 / $699
+        if (
+          !merged.pricing_plans ||
+          !merged.pricing_plans.pro_monthly ||
+          merged.pricing_plans.pro_monthly < 100 ||
+          !merged.pricing_plans.pro_6months ||
+          merged.pricing_plans.pro_6months < 200 ||
+          !merged.pricing_plans.pro_yearly ||
+          merged.pricing_plans.pro_yearly < 400 ||
+          !merged.pricing_plans.vip_lifetime ||
+          merged.pricing_plans.vip_lifetime < 699
+        ) {
+          merged.pricing_plans = {
+            pro_monthly: merged.pricing_plans?.pro_monthly && merged.pricing_plans.pro_monthly >= 100 ? merged.pricing_plans.pro_monthly : 100,
+            pro_6months: merged.pricing_plans?.pro_6months && merged.pricing_plans.pro_6months >= 200 ? merged.pricing_plans.pro_6months : 200,
+            pro_yearly: merged.pricing_plans?.pro_yearly && merged.pricing_plans.pro_yearly >= 400 ? merged.pricing_plans.pro_yearly : 400,
+            vip_lifetime: merged.pricing_plans?.vip_lifetime && merged.pricing_plans.vip_lifetime >= 699 ? merged.pricing_plans.vip_lifetime : 699,
+          }
+          void supabase.from('admin_settings').upsert([
+            { key: 'pricing_plans', value: merged.pricing_plans, updated_at: new Date().toISOString() },
+          ])
+        }
+
         safeStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(merged))
         return merged
       }
@@ -757,7 +781,16 @@ export const SupabaseDataService = {
     const cached = safeStorage.getItem(SETTINGS_CACHE_KEY)
     if (cached) {
       try {
-        return JSON.parse(cached)
+        const parsed = JSON.parse(cached)
+        if (
+          !parsed.pricing_plans ||
+          parsed.pricing_plans.pro_monthly < 100 ||
+          parsed.pricing_plans.pro_yearly < 400
+        ) {
+          parsed.pricing_plans = { ...DEFAULT_SETTINGS.pricing_plans }
+          safeStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(parsed))
+        }
+        return parsed
       } catch {}
     }
     return DEFAULT_SETTINGS
