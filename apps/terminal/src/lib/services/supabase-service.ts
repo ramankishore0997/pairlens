@@ -90,9 +90,9 @@ const DEFAULT_SETTINGS: DbSettings = {
     usdt_bep20: '0x71C8360f3a8b4FaA5cD4eA9F8E19cD61e4A58249',
   },
   pricing_plans: {
-    pro_monthly: 100,
-    pro_6months: 200,
-    pro_yearly: 400,
+    pro_monthly: 99,
+    pro_6months: 199,
+    pro_yearly: 399,
     vip_lifetime: 699,
   },
   telegram_config: {
@@ -682,7 +682,7 @@ export const SupabaseDataService = {
           ? new Date(Date.now() + 86400000 * 365 * 10).toISOString()
           : (sub.amount_usdt && sub.amount_usdt >= 350)
             ? new Date(Date.now() + 86400000 * 365).toISOString()
-            : (sub.amount_usdt && sub.amount_usdt >= 180)
+            : (sub.amount_usdt && sub.amount_usdt >= 150)
               ? new Date(Date.now() + 86400000 * 180).toISOString()
               : new Date(Date.now() + 86400000 * 30).toISOString()),
     }
@@ -750,22 +750,22 @@ export const SupabaseDataService = {
           if (row.key === 'telegram_config') merged.telegram_config = row.value
         })
 
-        // Auto-migrate & sanitize legacy pricing (e.g. old $29 / $199 / $499) to new $100 / $200 / $400 / $699
+        // Auto-migrate & sanitize legacy pricing (e.g. old $29 / $199 / $499 or $100/$200) to clean $99 / $199 / $399 / $699
         if (
           !merged.pricing_plans ||
           !merged.pricing_plans.pro_monthly ||
-          merged.pricing_plans.pro_monthly < 100 ||
+          merged.pricing_plans.pro_monthly < 99 ||
           !merged.pricing_plans.pro_6months ||
-          merged.pricing_plans.pro_6months < 200 ||
+          merged.pricing_plans.pro_6months < 199 ||
           !merged.pricing_plans.pro_yearly ||
-          merged.pricing_plans.pro_yearly < 400 ||
+          merged.pricing_plans.pro_yearly < 399 ||
           !merged.pricing_plans.vip_lifetime ||
           merged.pricing_plans.vip_lifetime < 699
         ) {
           merged.pricing_plans = {
-            pro_monthly: merged.pricing_plans?.pro_monthly && merged.pricing_plans.pro_monthly >= 100 ? merged.pricing_plans.pro_monthly : 100,
-            pro_6months: merged.pricing_plans?.pro_6months && merged.pricing_plans.pro_6months >= 200 ? merged.pricing_plans.pro_6months : 200,
-            pro_yearly: merged.pricing_plans?.pro_yearly && merged.pricing_plans.pro_yearly >= 400 ? merged.pricing_plans.pro_yearly : 400,
+            pro_monthly: merged.pricing_plans?.pro_monthly && merged.pricing_plans.pro_monthly >= 99 ? merged.pricing_plans.pro_monthly : 99,
+            pro_6months: merged.pricing_plans?.pro_6months && merged.pricing_plans.pro_6months >= 199 ? merged.pricing_plans.pro_6months : 199,
+            pro_yearly: merged.pricing_plans?.pro_yearly && merged.pricing_plans.pro_yearly >= 399 ? merged.pricing_plans.pro_yearly : 399,
             vip_lifetime: merged.pricing_plans?.vip_lifetime && merged.pricing_plans.vip_lifetime >= 699 ? merged.pricing_plans.vip_lifetime : 699,
           }
           void supabase.from('admin_settings').upsert([
@@ -784,8 +784,8 @@ export const SupabaseDataService = {
         const parsed = JSON.parse(cached)
         if (
           !parsed.pricing_plans ||
-          parsed.pricing_plans.pro_monthly < 100 ||
-          parsed.pricing_plans.pro_yearly < 400
+          parsed.pricing_plans.pro_monthly < 99 ||
+          parsed.pricing_plans.pro_yearly < 399
         ) {
           parsed.pricing_plans = { ...DEFAULT_SETTINGS.pricing_plans }
           safeStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(parsed))

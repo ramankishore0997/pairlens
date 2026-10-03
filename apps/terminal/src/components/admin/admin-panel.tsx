@@ -135,7 +135,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     status: 'active' as 'active' | 'pending',
     chain: 'TRC20',
     tx_hash: '',
-    amount_usdt: '100',
+    amount_usdt: '99',
   })
 
   // Settings form state
@@ -144,9 +144,9 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     usdt_bep20: '',
   })
   const [pricingForm, setPricingForm] = useState({
-    pro_monthly: 100,
-    pro_6months: 200,
-    pro_yearly: 400,
+    pro_monthly: 99,
+    pro_6months: 199,
+    pro_yearly: 399,
     vip_lifetime: 699,
   })
   const [telegramForm, setTelegramForm] = useState({
@@ -171,9 +171,9 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
       setSettings(conf)
       setWalletsForm(conf.crypto_wallets)
       setPricingForm({
-        pro_monthly: conf.pricing_plans.pro_monthly ?? 100,
-        pro_6months: conf.pricing_plans.pro_6months ?? 200,
-        pro_yearly: conf.pricing_plans.pro_yearly ?? 400,
+        pro_monthly: conf.pricing_plans.pro_monthly ?? 99,
+        pro_6months: conf.pricing_plans.pro_6months ?? 199,
+        pro_yearly: conf.pricing_plans.pro_yearly ?? 399,
         vip_lifetime: conf.pricing_plans.vip_lifetime ?? 699,
       })
       if (conf.telegram_config) {
@@ -1732,17 +1732,17 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                   onChange={(e) => {
                     const nextVal = e.target.value
                     const nextPlan: 'pro' | 'vip' = nextVal === 'vip' ? 'vip' : 'pro'
-                    let nextAmount = '100'
-                    if (nextVal === 'pro_6m') nextAmount = '200'
-                    if (nextVal === 'yearly') nextAmount = '400'
+                    let nextAmount = '99'
+                    if (nextVal === 'pro_6m') nextAmount = '199'
+                    if (nextVal === 'yearly') nextAmount = '399'
                     if (nextVal === 'vip') nextAmount = '699'
                     setCustomerForm({ ...customerForm, plan: nextPlan, amount_usdt: nextAmount })
                   }}
                   className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs"
                 >
-                  <option value="pro">VIP Monthly ($100)</option>
-                  <option value="pro_6m">VIP 6 Months ($200)</option>
-                  <option value="yearly">VIP 1 Year ($400)</option>
+                  <option value="pro">VIP Monthly ($99)</option>
+                  <option value="pro_6m">VIP 6 Months ($199)</option>
+                  <option value="yearly">VIP 1 Year ($399)</option>
                   <option value="vip">VIP Lifetime ($699)</option>
                 </select>
               </div>

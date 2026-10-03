@@ -58,9 +58,9 @@ export function LandingPage({
   }
 
   const prices = {
-    monthly: settings?.pricing_plans?.pro_monthly ?? 100,
-    sixMonths: settings?.pricing_plans?.pro_6months ?? 200,
-    yearly: settings?.pricing_plans?.pro_yearly ?? 400,
+    monthly: settings?.pricing_plans?.pro_monthly ?? 99,
+    sixMonths: settings?.pricing_plans?.pro_6months ?? 199,
+    yearly: settings?.pricing_plans?.pro_yearly ?? 399,
     lifetime: settings?.pricing_plans?.vip_lifetime ?? 699,
   }
 
