@@ -1360,7 +1360,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
 
       {/* CREATE TRADE MODAL */}
       <Dialog open={createTradeOpen} onOpenChange={setCreateTradeOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[95vw] sm:max-w-2xl md:max-w-3xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-6 bg-card border-border/80 rounded-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold flex items-center gap-2">
               <Plus className="size-5 text-cyan-400" /> Post New Signal (Supabase DB)
@@ -1676,7 +1676,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
 
       {/* EDIT TRADE / PHOTO & PRICES DIALOG */}
       <Dialog open={editTradeOpen} onOpenChange={setEditTradeOpen}>
-        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto bg-card border-border/80">
+        <DialogContent className="w-[95vw] sm:max-w-2xl md:max-w-3xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-6 bg-card border-border/80 rounded-2xl shadow-2xl">
           <DialogHeader>
             <div className="flex items-center justify-between pb-2 border-b border-border/40">
               <div className="flex items-center gap-2">

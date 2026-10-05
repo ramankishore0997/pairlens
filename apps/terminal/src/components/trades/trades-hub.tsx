@@ -807,17 +807,20 @@ export function TradesHub() {
       {/* Trade Inspection & Proof Modal */}
       {selectedTradeInspection && (
         <Dialog open={Boolean(selectedTradeInspection)} onOpenChange={() => setSelectedTradeInspection(null)}>
-          <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-card border-border/80">
+          <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[92vh] overflow-y-auto bg-card border-border/80 font-mono p-5 rounded-2xl shadow-2xl">
             <DialogHeader>
               <div className="flex items-center justify-between pb-2 border-b border-border/40">
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className={selectedTradeInspection.type === 'BUY' ? 'border-emerald-500 text-emerald-400' : 'border-rose-500 text-rose-400'}>
-                    {selectedTradeInspection.type}
+                  <Badge variant="outline" className={selectedTradeInspection.type === 'BUY' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10' : 'border-rose-500 text-rose-400 bg-rose-500/10'}>
+                    {selectedTradeInspection.type === 'BUY' ? 'BUY / LONG' : 'SELL / SHORT'}
                   </Badge>
                   <span className="text-base font-bold font-mono text-foreground">{selectedTradeInspection.symbol}</span>
+                  <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
+                    {selectedTradeInspection.category}
+                  </Badge>
                 </div>
                 <Badge variant="outline" className="border-cyan-500/40 text-cyan-400 font-mono text-xs">
-                  Audited Execution Proof
+                  {selectedTradeInspection.status === 'ACTIVE' ? '🟢 Live Active Setup' : '🏁 Completed Trade'}
                 </Badge>
               </div>
               <DialogTitle className="text-base font-bold mt-2">
@@ -830,11 +833,11 @@ export function TradesHub() {
 
             <div className="space-y-3 font-mono text-xs py-1">
               {/* Hybrid Visual Chart Proof (Custom Screenshot or Auto-Generated Vector Candlestick Chart) */}
-              <TradeChartSnapshot trade={selectedTradeInspection} height={230} />
+              <TradeChartSnapshot trade={selectedTradeInspection} height={260} />
 
               <div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-background/60 border border-border/40 text-center">
                 <div>
-                  <span className="text-[10px] text-muted-foreground block">Entry</span>
+                  <span className="text-[10px] text-muted-foreground block">Entry Price</span>
                   <span className="font-bold text-foreground">{selectedTradeInspection.entryPrice}</span>
                 </div>
                 <div>
@@ -842,49 +845,88 @@ export function TradesHub() {
                   <span className="font-semibold text-rose-400">{selectedTradeInspection.stopLoss}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-emerald-400 block">Close PnL</span>
-                  <span className="font-bold text-emerald-400">+{selectedTradeInspection.pnlPercent ?? 32}%</span>
+                  <span className="text-[10px] text-cyan-400 block">
+                    {selectedTradeInspection.status === 'ACTIVE' ? 'Target 1 (TP1)' : 'Outcome PnL'}
+                  </span>
+                  <span className={`font-bold ${selectedTradeInspection.status === 'ACTIVE' ? 'text-cyan-400' : (selectedTradeInspection.pnlPercent ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {selectedTradeInspection.status === 'ACTIVE'
+                      ? selectedTradeInspection.target1
+                      : `${(selectedTradeInspection.pnlPercent ?? 0) >= 0 ? '+' : ''}${selectedTradeInspection.pnlPercent ?? 0}%`}
+                  </span>
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 space-y-1.5">
+              <div className="p-3 rounded-lg bg-muted/20 border border-border/40 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-[11px]">Outcome Status:</span>
-                  <span className="text-emerald-400 font-bold">{selectedTradeInspection.closeReason || 'TP2 HIT'}</span>
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className={`font-bold ${selectedTradeInspection.status === 'ACTIVE' ? 'text-emerald-400' : 'text-foreground'}`}>
+                    {selectedTradeInspection.status === 'ACTIVE' ? '🟢 ACTIVE (Signal In Progress)' : `🏁 CLOSED (${selectedTradeInspection.closeReason || 'COMPLETED'})`}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-[11px]">Target 1:</span>
-                  <span className="text-foreground">{selectedTradeInspection.target1} (Hit ✓)</span>
+                  <span className="text-muted-foreground">Target 1 (TP1):</span>
+                  <span className="text-emerald-400 font-bold">{selectedTradeInspection.target1}</span>
                 </div>
                 {selectedTradeInspection.target2 && (
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-[11px]">Target 2:</span>
-                    <span className="text-foreground">{selectedTradeInspection.target2} (Hit ✓)</span>
+                    <span className="text-muted-foreground">Target 2 (TP2):</span>
+                    <span className="text-emerald-400 font-bold">{selectedTradeInspection.target2}</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-[11px]">Execution Speed:</span>
-                  <span className="text-cyan-400">⚡ 1h 35m (Fast Execution)</span>
-                </div>
+                {selectedTradeInspection.target3 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Target 3 (TP3):</span>
+                    <span className="text-emerald-400 font-bold">{selectedTradeInspection.target3}</span>
+                  </div>
+                )}
+                {selectedTradeInspection.leverage && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Leverage:</span>
+                    <span className="text-cyan-400">{selectedTradeInspection.leverage}</span>
+                  </div>
+                )}
               </div>
 
               {selectedTradeInspection.notes && (
-                <div className="p-2.5 rounded-lg bg-background/60 border border-border/40">
-                  <span className="text-[10px] text-muted-foreground uppercase block mb-1">Strategy & Confluence Reason:</span>
+                <div className="p-3 rounded-lg bg-background/60 border border-border/40">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">
+                    Strategy & Confluence Reason:
+                  </span>
                   <p className="text-xs text-foreground/90 italic">"{selectedTradeInspection.notes}"</p>
                 </div>
               )}
             </div>
 
-            <Button
-              onClick={() => {
-                setSelectedTradeInspection(null)
-                setCheckoutModalOpen(true)
-              }}
-              className="w-full bg-gradient-to-r from-cyan-500 via-teal-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black font-mono text-xs h-10 shadow-lg shadow-cyan-500/25 tracking-wide"
-            >
-              <Sparkles className="size-3.5 mr-1.5" /> Unlock Real-Time Signals Live ($99/mo)
-            </Button>
+            {isPaidMember ? (
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="size-4 text-emerald-400" />
+                    VIP Real-Time Signal Stream Active
+                  </span>
+                  <Badge variant="outline" className="border-emerald-500/50 text-emerald-400 font-mono text-[10px]">
+                    VIP UNLOCKED
+                  </Badge>
+                </div>
+                <Button
+                  onClick={() => setSelectedTradeInspection(null)}
+                  variant="outline"
+                  className="w-full text-xs font-mono font-bold h-9"
+                >
+                  Close Inspection
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={() => {
+                  setSelectedTradeInspection(null)
+                  setCheckoutModalOpen(true)
+                }}
+                className="w-full bg-gradient-to-r from-cyan-500 via-teal-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black font-mono text-xs h-10 shadow-lg shadow-cyan-500/25 tracking-wide mt-2"
+              >
+                <Sparkles className="size-3.5 mr-1.5" /> Unlock Real-Time Signals Live ($99/mo)
+              </Button>
+            )}
           </DialogContent>
         </Dialog>
       )}

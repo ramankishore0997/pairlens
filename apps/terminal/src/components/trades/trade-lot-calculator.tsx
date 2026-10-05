@@ -11,6 +11,7 @@ import {
   TrendingUp,
   TrendingDown,
   Info,
+  X,
 } from 'lucide-react'
 import { Button } from '@pairlens/ui/components/ui/button'
 import { Input } from '@pairlens/ui/components/ui/input'
@@ -38,27 +39,33 @@ export function TradeLotCalculatorModal({
   const [riskPercent, setRiskPercent] = useState<number>(1)
   const [copied, setCopied] = useState(false)
 
-  if (!trade) return null
+  const isBuy = (trade?.type || 'BUY') === 'BUY'
+  const symbol = trade?.symbol || 'EUR/USD'
+  const isJpy = symbol.toUpperCase().includes('JPY')
+  const isGold = symbol.toUpperCase().includes('XAU') || symbol.toUpperCase().includes('GOLD')
+  const isCrypto = (trade?.category || '').toLowerCase() === 'crypto' || symbol.toUpperCase().includes('BTC') || symbol.toUpperCase().includes('ETH')
 
-  const isBuy = trade.type === 'BUY'
-  const isJpy = trade.symbol.includes('JPY')
-  const isGold = trade.symbol.includes('XAU') || trade.symbol.includes('GOLD')
-  const isCrypto = trade.category === 'Crypto' || trade.symbol.includes('BTC') || trade.symbol.includes('ETH')
+  const entry = Number(trade?.entryPrice) || 1
+  const sl = Number(trade?.stopLoss) || 1
+  const tp1 = Number(trade?.target1) || entry * 1.01
+  const tp2 = trade?.target2 ? Number(trade.target2) : undefined
 
   // Calculate SL distance
-  const slDistance = Math.abs(trade.entryPrice - trade.stopLoss)
+  const slDistance = Math.max(0.00001, Math.abs(entry - sl))
 
   // Calculate Pips
   const pipsDistance = useMemo(() => {
     if (isJpy) return Number((slDistance * 100).toFixed(1))
     if (isGold) return Number((slDistance * 10).toFixed(1))
-    if (isCrypto) return Number((slDistance).toFixed(2))
+    if (isCrypto) return Number(slDistance.toFixed(2))
     return Number((slDistance * 10000).toFixed(1))
   }, [slDistance, isJpy, isGold, isCrypto])
 
   // Dollar amount at risk
   const riskAmountDollars = useMemo(() => {
-    return (accountBalance * riskPercent) / 100
+    const bal = Math.max(1, accountBalance || 1000)
+    const risk = Math.max(0.01, riskPercent || 1)
+    return (bal * risk) / 100
   }, [accountBalance, riskPercent])
 
   // Standard Lot Size Calculation
@@ -68,41 +75,41 @@ export function TradeLotCalculatorModal({
     if (isGold) {
       // 1 standard lot = 100 oz. $1 move = $100 per lot.
       const lot = riskAmountDollars / Math.max(0.01, slDistance * 100)
-      return Math.max(0.01, Number(lot.toFixed(2)))
+      return Math.max(0.01, Number((isNaN(lot) ? 0.01 : lot).toFixed(2)))
     }
 
     if (isCrypto) {
       // Direct contract / coin units
       const units = riskAmountDollars / Math.max(0.01, slDistance)
-      return Math.max(0.001, Number(units.toFixed(3)))
+      return Math.max(0.001, Number((isNaN(units) ? 0.01 : units).toFixed(3)))
     }
 
     // Forex: Standard Lot = 100,000 units ($10/pip). Pip value = $10 * lot
-    const lot = riskAmountDollars / (pipsDistance * 10)
-    return Math.max(0.01, Number(lot.toFixed(2)))
+    const lot = riskAmountDollars / Math.max(0.001, pipsDistance * 10)
+    return Math.max(0.01, Number((isNaN(lot) ? 0.01 : lot).toFixed(2)))
   }, [riskAmountDollars, slDistance, pipsDistance, isGold, isCrypto])
 
   // Reward Calculations
-  const tp1Distance = Math.abs(trade.target1 - trade.entryPrice)
-  const tp1Pips = isJpy ? tp1Distance * 100 : isGold ? tp1Distance * 10 : isCrypto ? tp1Distance : tp1Distance * 10000
-  const tp1RewardDollars = ((tp1Distance / Math.max(0.00001, slDistance)) * riskAmountDollars).toFixed(2)
-  const tp1Rr = (tp1Distance / Math.max(0.00001, slDistance)).toFixed(2)
+  const tp1Distance = Math.abs(tp1 - entry)
+  const tp1RewardDollars = ((tp1Distance / slDistance) * riskAmountDollars).toFixed(2)
+  const tp1Rr = (tp1Distance / slDistance).toFixed(2)
 
-  const tp2Distance = trade.target2 ? Math.abs(trade.target2 - trade.entryPrice) : 0
-  const tp2RewardDollars = trade.target2 ? ((tp2Distance / Math.max(0.00001, slDistance)) * riskAmountDollars).toFixed(2) : null
-  const tp2Rr = trade.target2 ? (tp2Distance / Math.max(0.00001, slDistance)).toFixed(2) : null
+  const tp2Distance = tp2 ? Math.abs(tp2 - entry) : 0
+  const tp2RewardDollars = tp2 ? ((tp2Distance / slDistance) * riskAmountDollars).toFixed(2) : null
+  const tp2Rr = tp2 ? (tp2Distance / slDistance).toFixed(2) : null
 
   const handleCopySetupWithRisk = async () => {
+    if (!trade) return
     const text = `📊 PAIRLENS RISK & LOT PLAN
-Pair: ${trade.symbol} (${trade.type})
-Account Balance: $${accountBalance.toLocaleString()}
+Pair: ${symbol} (${trade.type})
+Account Balance: $${(accountBalance || 1000).toLocaleString()}
 Risk: ${riskPercent}% ($${riskAmountDollars.toFixed(2)})
 Recommended Lot Size: ${calculatedLotSize} ${isCrypto ? 'Units' : 'Lots'}
 ----------------------------
-Entry: ${trade.entryPrice}
-Stop Loss: ${trade.stopLoss} (${pipsDistance} pips)
-Target 1: ${trade.target1} (+$${tp1RewardDollars} · 1:${tp1Rr} R:R)
-${trade.target2 ? `Target 2: ${trade.target2} (+$${tp2RewardDollars} · 1:${tp2Rr} R:R)` : ''}
+Entry: ${entry}
+Stop Loss: ${sl} (${pipsDistance} pips)
+Target 1: ${tp1} (+$${tp1RewardDollars} · 1:${tp1Rr} R:R)
+${tp2 ? `Target 2: ${tp2} (+$${tp2RewardDollars} · 1:${tp2Rr} R:R)` : ''}
 ⚡ Calculated on Pairlens Terminal`
 
     try {
@@ -118,8 +125,8 @@ ${trade.target2 ? `Target 2: ${trade.target2} (+$${tp2RewardDollars} · 1:${tp2R
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-card border-border/80 font-mono">
+    <Dialog open={open && Boolean(trade)} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[95vw] sm:max-w-md bg-card border-border/80 font-mono p-5 rounded-2xl shadow-2xl">
         <DialogHeader>
           <div className="flex items-center justify-between pb-2 border-b border-border/40">
             <div className="flex items-center gap-2">
@@ -131,9 +138,9 @@ ${trade.target2 ? `Target 2: ${trade.target2} (+$${tp2RewardDollars} · 1:${tp2R
                     : 'border-rose-500 text-rose-400 bg-rose-500/10'
                 }
               >
-                {trade.type}
+                {isBuy ? 'BUY / LONG' : 'SELL / SHORT'}
               </Badge>
-              <span className="font-bold text-base text-foreground">{trade.symbol}</span>
+              <span className="font-bold text-base text-foreground">{symbol}</span>
             </div>
             <Badge variant="outline" className="border-cyan-500/40 text-cyan-400 text-xs">
               <Shield className="size-3 mr-1 inline" /> Risk Manager
@@ -156,10 +163,10 @@ ${trade.target2 ? `Target 2: ${trade.target2} (+$${tp2RewardDollars} · 1:${tp2R
               <Input
                 type="number"
                 value={accountBalance}
-                onChange={(e) => setAccountBalance(Math.max(10, Number(e.target.value)))}
-                className="font-bold text-foreground bg-background/80"
+                onChange={(e) => setAccountBalance(Math.max(1, Number(e.target.value) || 0))}
+                className="font-bold text-foreground bg-background/80 h-9 text-xs"
               />
-              <div className="flex items-center gap-1 mt-1.5">
+              <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                 {[500, 1000, 5000, 10000].map((preset) => (
                   <button
                     key={preset}
@@ -179,10 +186,10 @@ ${trade.target2 ? `Target 2: ${trade.target2} (+$${tp2RewardDollars} · 1:${tp2R
                 type="number"
                 step="0.25"
                 value={riskPercent}
-                onChange={(e) => setRiskPercent(Math.max(0.1, Number(e.target.value)))}
-                className="font-bold text-rose-400 bg-background/80"
+                onChange={(e) => setRiskPercent(Math.max(0.1, Number(e.target.value) || 0.1))}
+                className="font-bold text-rose-400 bg-background/80 h-9 text-xs"
               />
-              <div className="flex items-center gap-1 mt-1.5">
+              <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                 {[0.5, 1, 2, 3].map((preset) => (
                   <button
                     key={preset}
@@ -229,7 +236,7 @@ ${trade.target2 ? `Target 2: ${trade.target2} (+$${tp2RewardDollars} · 1:${tp2R
               </span>
             </div>
 
-            {trade.target2 && (
+            {tp2 && (
               <div className="flex items-center justify-between border-t border-emerald-500/10 pt-1">
                 <span className="text-muted-foreground flex items-center gap-1">
                   <Target className="size-3 text-emerald-400" /> Target 2 Return:
