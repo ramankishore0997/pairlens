@@ -277,10 +277,15 @@ export function TradesHub() {
     [pastTrades]
   )
 
-  // Filtered displayed list
+  // Filtered displayed list (Single Unified Live Trades Stream with Active prioritized)
   const displayedTrades = useMemo(() => {
-    const list = activeTab === 'ACTIVE' ? activeTrades : pastTrades
-    return list.filter((t) => {
+    const sorted = [...trades].sort((a, b) => {
+      if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1
+      if (a.status !== 'ACTIVE' && b.status === 'ACTIVE') return 1
+      return b.createdAt - a.createdAt
+    })
+
+    return sorted.filter((t) => {
       const matchCat = selectedCategory === 'ALL' || t.category === selectedCategory
       const matchQuery =
         !searchQuery ||
@@ -288,7 +293,7 @@ export function TradesHub() {
         (t.notes && t.notes.toLowerCase().includes(searchQuery.toLowerCase()))
       return matchCat && matchQuery
     })
-  }, [activeTab, activeTrades, pastTrades, selectedCategory, searchQuery])
+  }, [trades, selectedCategory, searchQuery])
 
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 bg-background overflow-hidden selection:bg-cyan-500/20">
@@ -354,31 +359,15 @@ export function TradesHub() {
       {/* Action Bar / Controls Header */}
       <div className="border-b border-border/40 px-6 py-2.5 bg-card/10 shrink-0">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          {/* Segmented Tab Switcher */}
-          <div className="flex items-center gap-1 bg-muted/40 p-0.5 rounded-lg border border-border/40">
-            <button
-              type="button"
-              onClick={() => setActiveTab('ACTIVE')}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 font-mono ${
-                activeTab === 'ACTIVE'
-                  ? 'bg-background text-foreground shadow-xs font-semibold'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Active Signals ({activeTrades.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('PAST')}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all font-mono ${
-                activeTab === 'PAST'
-                  ? 'bg-background text-foreground shadow-xs font-semibold'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Past Results ({pastTrades.length})
-            </button>
+          {/* Live Signals Stream Badge */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-mono font-bold text-emerald-400 shadow-xs">
+              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>LIVE TRADES STREAM ({activeTrades.length} Active)</span>
+            </div>
+            <span className="text-[11px] text-muted-foreground font-mono hidden sm:inline">
+              Real-time setups with TradingView chart analysis
+            </span>
           </div>
 
           {/* Filters, Search & VIP */}
@@ -642,6 +631,35 @@ export function TradesHub() {
                           )}
                         </div>
                       </div>
+
+                      {/* TradingView Chart Snapshot / Visual Setup */}
+                      {trade.chartImageUrl && (
+                        <div
+                          onClick={() => setSelectedTradeInspection(trade)}
+                          className="relative mt-3 rounded-lg overflow-hidden border border-border/60 bg-black/60 cursor-pointer group/chart"
+                          title="Click to zoom chart analysis"
+                        >
+                          <img
+                            src={trade.chartImageUrl}
+                            alt={`${trade.symbol} Chart Analysis`}
+                            className="w-full h-40 object-cover transition-transform duration-300 group-hover/chart:scale-105"
+                            onError={(e) => {
+                              const target = e.currentTarget
+                              if (target.src.includes('_big.png')) {
+                                target.src = target.src.replace('_big.png', '_mid.png')
+                              }
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-between p-2">
+                            <span className="text-[10.5px] font-mono font-bold text-cyan-400 bg-black/70 px-2 py-0.5 rounded border border-cyan-500/30 flex items-center gap-1.5 shadow-sm">
+                              <Eye className="size-3.5" /> TradingView Analysis
+                            </span>
+                            <span className="text-[9.5px] font-mono text-muted-foreground bg-black/70 px-1.5 py-0.5 rounded">
+                              Click to Zoom 🔍
+                            </span>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Trade Parameters Grid */}
                       <div className="grid grid-cols-3 gap-2 my-3.5 p-2.5 rounded-lg bg-background/60 border border-border/30 text-xs font-mono text-center">

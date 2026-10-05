@@ -83,7 +83,52 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     chart_image_url: '',
   })
   const [closeOutcome, setCloseOutcome] = useState<DbTrade['outcome']>('tp1')
-  const [customExitPrice, setCustomExitPrice] = useState('')
+  const [tvLinkInput, setTvLinkInput] = useState('')
+
+  const handleImportTvLink = (url: string) => {
+    setTvLinkInput(url)
+    const trimmed = url.trim()
+    if (!trimmed) return
+
+    const matchFull = trimmed.match(/tradingview\.com\/chart\/([A-Za-z0-9_]+)\/([A-Za-z0-9]+)(?:-([^\s/?#]+))?/i)
+    const matchShort = trimmed.match(/tradingview\.com\/(?:chart|x|symbols)\/([A-Za-z0-9]+)/i)
+
+    let symbol = ''
+    let ideaId = ''
+    let rawTitle = ''
+
+    if (matchFull) {
+      symbol = matchFull[1].toUpperCase()
+      ideaId = matchFull[2]
+      rawTitle = matchFull[3] || ''
+    } else if (matchShort) {
+      ideaId = matchShort[1]
+    }
+
+    if (ideaId) {
+      const firstChar = ideaId.charAt(0).toLowerCase()
+      const imageUrl = `https://s3.tradingview.com/${firstChar}/${ideaId}_big.png`
+      
+      let assetClass = 'Forex'
+      if (symbol.includes('BTC') || symbol.includes('ETH') || symbol.includes('SOL') || symbol.includes('USDT')) {
+        assetClass = 'Crypto'
+      } else if (symbol.includes('XAU') || symbol.includes('GOLD') || symbol.includes('OIL')) {
+        assetClass = 'Commodity'
+      }
+
+      const cleanTitle = rawTitle ? decodeURIComponent(rawTitle).replace(/[-_+]/g, ' ').trim() : ''
+
+      setTradeForm((prev) => ({
+        ...prev,
+        symbol: symbol || prev.symbol,
+        asset_class: assetClass,
+        notes: cleanTitle ? cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1) : prev.notes,
+        chart_image_url: imageUrl,
+      }))
+
+      toast.success(`TradingView Idea Attached! Snapshot & ${symbol || 'Pair'} loaded.`)
+    }
+  }
 
   // Edit Trade state
   const [editTradeOpen, setEditTradeOpen] = useState(false)
@@ -1142,6 +1187,57 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
           </DialogHeader>
 
           <form onSubmit={handleCreateTradeSubmit} className="space-y-3.5 py-2">
+            {/* 1-Click TradingView Idea Link Auto-Importer */}
+            <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 space-y-1.5">
+              <label className="text-xs font-bold text-cyan-400 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="size-3.5" /> 1-Click TradingView Idea Link Auto-Fill
+                </span>
+                <span className="text-[10px] text-muted-foreground font-normal">Auto-Extract</span>
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Paste https://www.tradingview.com/chart/AUDUSD/7WSJ7lSF... link"
+                  value={tvLinkInput}
+                  onChange={(e) => handleImportTvLink(e.target.value)}
+                  className="font-mono text-xs h-8 bg-background/80"
+                />
+                {tvLinkInput && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setTvLinkInput('')}
+                    className="h-8 text-xs px-2 text-muted-foreground"
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+              {tradeForm.chart_image_url && (
+                <div className="mt-2 rounded-lg border border-border/60 overflow-hidden bg-black/40 flex items-center gap-3 p-2">
+                  <img
+                    src={tradeForm.chart_image_url}
+                    alt="Chart preview"
+                    className="h-14 w-24 object-cover rounded border border-border/40 shrink-0"
+                    onError={(e) => {
+                      // Fallback if big doesn't exist
+                      const target = e.currentTarget
+                      if (target.src.includes('_big.png')) {
+                        target.src = target.src.replace('_big.png', '_mid.png')
+                      }
+                    }}
+                  />
+                  <div className="text-[11px] overflow-hidden">
+                    <span className="text-emerald-400 font-bold block">✓ TradingView Chart Attached</span>
+                    <span className="text-muted-foreground font-mono truncate block text-[10px]">
+                      {tradeForm.chart_image_url}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Symbol</label>
