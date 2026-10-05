@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 // Supabase project connection
 const SUPABASE_URL = 'https://fginmwbygletrkisvcwz.supabase.co'
 const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnaW5td2J5Z2xldHJraXN2Y3d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MjI2MDAsImV4cCI6MjA1ODk5ODYwMH0.placeholder'
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnaW5td2J5Z2xldHJraXN2Y3d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3NjgxMTksImV4cCI6MjEwNjM0NDExOX0.yX7co6DcZJL7_IbyX9n7ywkNEQxUMmwWxmcp_ALZd-U'
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true },
