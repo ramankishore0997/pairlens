@@ -115,24 +115,27 @@ export function CryptoCheckoutModal({
     }
 
     setSubmitting(true)
-    setVerifyStatus(`Querying ${selectedChain} network mempool & ledger...`)
+    setVerifyStatus(`Submitting ${selectedChain} transaction hash for Admin review...`)
 
     try {
       const targetPlan = selectedPlan === 'lifetime' ? 'vip' : 'pro'
-      const result = await SupabaseDataService.verifyBlockchainPayment(
-        email.trim(),
-        selectedChain,
-        cleanHash,
-        targetPlan,
-        amountToPay
-      )
+      
+      // Submit subscription in pending state for admin manual confirmation
+      await SupabaseDataService.createSubscription({
+        email: email.trim(),
+        wallet_address: activeWallet,
+        plan: targetPlan,
+        status: 'pending',
+        chain: selectedChain,
+        tx_hash: cleanHash,
+        amount_usdt: amountToPay,
+      })
 
-      setVerifyStatus(result.message)
       setStep('CONFIRM')
-      toast.success('VIP Membership Activated Successfully!')
+      toast.success('Payment submitted for Admin verification!')
       if (onSuccess) onSuccess()
     } catch (err: any) {
-      toast.error(err.message || 'Error verifying blockchain payment. Please check your TxID.')
+      toast.error(err.message || 'Error submitting transaction hash. Please try again.')
     } finally {
       setSubmitting(false)
       setVerifyStatus('')
@@ -417,24 +420,46 @@ export function CryptoCheckoutModal({
 
         {step === 'CONFIRM' && (
           <div className="text-center py-6 space-y-4 font-mono">
-            <div className="size-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto shadow-lg shadow-emerald-500/20 animate-pulse">
-              <CheckCircle2 className="size-8" />
+            <div className="size-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto shadow-lg shadow-amber-500/20 animate-pulse">
+              <Clock className="size-8" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-foreground">VIP Access Activated!</h3>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold uppercase mb-2">
+                <span className="size-1.5 rounded-full bg-amber-400 animate-ping" />
+                Submitted · Pending Admin Confirmation
+              </div>
+              <h3 className="text-xl font-bold text-foreground">Payment Details Received!</h3>
               <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">
-                Your blockchain payment has been verified on-chain. You now have full institutional signal access unlocked.
+                Your <strong className="text-foreground">${amountToPay} USDT</strong> transaction hash has been forwarded to our admin team for verification.
               </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-left space-y-2">
-              <div className="flex items-center gap-2 text-cyan-400 font-bold text-xs">
-                <Sparkles className="size-4" /> Live Institutional Signals Activated
+            <div className="p-4 rounded-xl bg-card/80 border border-border/80 text-left space-y-2">
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-border/40">
+                <span className="text-muted-foreground">Status:</span>
+                <span className="text-amber-400 font-bold flex items-center gap-1">
+                  <Clock className="size-3" /> Awaiting Admin Approval
+                </span>
               </div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Your VIP subscription is now live. All real-time Forex, Gold & Crypto trade setups, precise Entry zones, Stop Loss, and 3 Target ladders are streaming on your terminal dashboard.
-              </p>
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-border/40">
+                <span className="text-muted-foreground">Account Email:</span>
+                <span className="text-foreground font-bold">{email}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-border/40">
+                <span className="text-muted-foreground">Network:</span>
+                <span className="text-cyan-400 font-bold">{selectedChain} (USDT)</span>
+              </div>
+              <div className="text-xs">
+                <span className="text-muted-foreground block text-[10px] uppercase mb-0.5">Submitted TxID:</span>
+                <span className="font-mono text-[10px] text-foreground/90 break-all select-all block bg-muted/40 p-1.5 rounded border border-border/40">
+                  {txHash}
+                </span>
+              </div>
             </div>
+
+            <p className="text-[11px] text-muted-foreground">
+              Once the admin confirms the on-chain transfer (usually within 5–15 minutes), your VIP signals stream will activate immediately.
+            </p>
 
             <Button
               onClick={() => {
@@ -443,7 +468,7 @@ export function CryptoCheckoutModal({
               }}
               className="w-full bg-gradient-to-r from-cyan-500 via-teal-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black font-mono text-xs h-10 shadow-lg shadow-cyan-500/25"
             >
-              Launch VIP Live Signals Stream <ArrowRight className="size-3.5 ml-1" />
+              Done / Return to Terminal
             </Button>
           </div>
         )}

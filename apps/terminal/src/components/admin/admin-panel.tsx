@@ -435,10 +435,24 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     })
   }
 
-  const handleApproveSub = async (id: string) => {
-    await SupabaseDataService.updateSubscription(id, { status: 'active' })
-    toast.success('Subscription activated & approved')
-    loadData()
+  const handleApproveSub = async (sub: DbSubscription) => {
+    try {
+      await SupabaseDataService.approveSubscription(sub.id)
+      toast.success(`✓ Payment Confirmed! ${sub.email} activated for ${sub.plan.toUpperCase()} plan.`)
+      loadData()
+    } catch {
+      toast.error('Failed to approve subscription')
+    }
+  }
+
+  const handleRejectSub = async (sub: DbSubscription) => {
+    try {
+      await SupabaseDataService.rejectSubscription(sub.id)
+      toast.info(`✗ Payment Rejected for ${sub.email}`)
+      loadData()
+    } catch {
+      toast.error('Failed to reject subscription')
+    }
   }
 
   const handleDeleteSub = async (id: string) => {
@@ -519,6 +533,9 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
         (s.tx_hash && s.tx_hash.toLowerCase().includes(customerSearch.toLowerCase()))
     )
   }, [subscriptions, customerSearch])
+
+  const pendingSubs = useMemo(() => filteredSubs.filter((s) => s.status === 'pending'), [filteredSubs])
+  const activeSubs = useMemo(() => filteredSubs.filter((s) => s.status !== 'pending'), [filteredSubs])
 
   // Active vs Closed trades
   const activeTradesList = useMemo(() => trades.filter((t) => t.status === 'active'), [trades])
@@ -621,6 +638,11 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
         >
           <Users className="size-3.5 text-emerald-400" />
           Subscribers ({subscriptions.length})
+          {pendingSubs.length > 0 && (
+            <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] animate-pulse">
+              {pendingSubs.length} Pending
+            </span>
+          )}
         </button>
         <button
           type="button"
@@ -884,108 +906,270 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
 
       {/* TAB 2: SUBSCRIBERS / CUSTOMERS */}
       {activeTab === 'CUSTOMERS' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Search subscriber email, wallet, tx hash..."
-                value={customerSearch}
-                onChange={(e) => setCustomerSearch(e.target.value)}
-                className="h-8 pl-8 text-xs bg-card/60"
-              />
-            </div>
+        <div className="space-y-6">
+          {/* PENDING PAYMENT APPROVALS SECTION */}
+          {pendingSubs.length > 0 && (
+            <div className="rounded-xl border-2 border-amber-500/40 bg-amber-500/5 p-4 space-y-3 shadow-lg shadow-amber-500/5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="size-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                    <Clock className="size-4 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-amber-400 flex items-center gap-2">
+                      🟡 Pending Payment Approvals ({pendingSubs.length})
+                    </h3>
+                    <p className="text-[11px] text-muted-foreground">
+                      User submitted crypto checkout. Verify transaction on blockchain explorer then click Confirm or Reject.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-            <Button
-              size="sm"
-              onClick={() => setAddCustomerOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 text-xs h-8"
-            >
-              <Plus className="size-4" /> Add Subscriber Manual
-            </Button>
-          </div>
+              <div className="space-y-2.5 pt-1">
+                {pendingSubs.map((sub) => {
+                  const isTron = (sub.chain || '').toUpperCase().includes('TRC') || (sub.chain || '').toUpperCase() === 'TRC20'
+                  const explorerUrl = sub.tx_hash
+                    ? isTron
+                      ? `https://tronscan.org/#/transaction/${sub.tx_hash}`
+                      : `https://bscscan.com/tx/${sub.tx_hash}`
+                    : null
 
-          <div className="border border-border/60 rounded-xl overflow-hidden bg-card/40">
-            <table className="w-full text-left text-xs font-mono">
-              <thead className="bg-muted/40 text-muted-foreground border-b border-border/40">
-                <tr>
-                  <th className="p-3">Customer Email</th>
-                  <th className="p-3">Plan</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Chain & TX Hash</th>
-                  <th className="p-3">Amount Paid</th>
-                  <th className="p-3">Expiry Date</th>
-                  <th className="p-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                {filteredSubs.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="p-6 text-center text-muted-foreground">
-                      No subscribers found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredSubs.map((sub) => (
-                    <tr key={sub.id} className="hover:bg-card/60">
-                      <td className="p-3 font-semibold text-foreground">{sub.email}</td>
-                      <td className="p-3">
-                        <Badge
-                          variant="outline"
-                          className={
-                            sub.plan === 'vip'
-                              ? 'border-amber-500/40 text-amber-400 bg-amber-500/10'
-                              : 'border-cyan-500/40 text-cyan-400 bg-cyan-500/10'
-                          }
-                        >
-                          {sub.plan.toUpperCase()}
-                        </Badge>
-                      </td>
-                      <td className="p-3">
-                        {sub.status === 'active' ? (
-                          <span className="text-emerald-400 flex items-center gap-1 font-bold">
-                            <Check className="size-3" /> Active
-                          </span>
-                        ) : (
-                          <span className="text-amber-400 flex items-center gap-1 font-bold">
-                            <Clock className="size-3" /> Pending Verification
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-muted-foreground">
-                        <span className="block text-[10px] text-cyan-400 font-bold">{sub.chain || 'USDT'}</span>
-                        <span className="font-mono text-[10px] truncate max-w-[120px] inline-block">
-                          {sub.tx_hash || 'Direct Manual'}
-                        </span>
-                      </td>
-                      <td className="p-3 font-bold text-foreground">${sub.amount_usdt ?? 29}</td>
-                      <td className="p-3 text-muted-foreground">
-                        {sub.expires_at ? new Date(sub.expires_at).toLocaleDateString() : 'Lifetime'}
-                      </td>
-                      <td className="p-3 text-right space-x-1">
-                        {sub.status === 'pending' && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleApproveSub(sub.id)}
-                            className="h-6 text-[10px] px-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                  return (
+                    <div
+                      key={sub.id}
+                      className="p-3.5 rounded-lg bg-card/90 border border-amber-500/30 flex flex-col md:flex-row md:items-center justify-between gap-3 font-mono text-xs shadow-sm"
+                    >
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-foreground text-sm">{sub.email}</span>
+                          <Badge
+                            variant="outline"
+                            className={
+                              sub.plan === 'vip' || (sub.amount_usdt && sub.amount_usdt >= 600)
+                                ? 'border-amber-500/50 text-amber-400 bg-amber-500/10'
+                                : 'border-cyan-500/50 text-cyan-400 bg-cyan-500/10'
+                            }
                           >
-                            Approve
-                          </Button>
-                        )}
+                            {sub.plan.toUpperCase()} PLAN (${sub.amount_usdt ?? 99} USDT)
+                          </Badge>
+                          <Badge variant="outline" className="border-border text-muted-foreground text-[10px]">
+                            {sub.chain || 'USDT'}
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground">
+                            {sub.created_at ? new Date(sub.created_at).toLocaleString() : 'Just now'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                          <span className="text-[10px] font-bold text-cyan-400 uppercase">TxID:</span>
+                          <span className="font-mono text-foreground/90 bg-muted/60 px-2 py-0.5 rounded border border-border/50 truncate max-w-[280px] sm:max-w-md select-all">
+                            {sub.tx_hash || 'No Tx Hash Provided'}
+                          </span>
+                          {sub.tx_hash && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(sub.tx_hash || '')
+                                toast.success('TxID copied to clipboard')
+                              }}
+                              className="p-1 hover:text-cyan-400 text-muted-foreground transition-colors"
+                              title="Copy TxID"
+                            >
+                              <Copy className="size-3.5" />
+                            </button>
+                          )}
+                          {explorerUrl && (
+                            <a
+                              href={explorerUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-400 hover:text-cyan-300 hover:underline ml-1"
+                            >
+                              View on Explorer <ExternalLink className="size-3" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-border/40">
+                        <Button
+                          size="sm"
+                          onClick={() => handleApproveSub(sub)}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-8 px-3 gap-1.5 shadow-md shadow-emerald-600/20"
+                        >
+                          <CheckCircle2 className="size-3.5" /> Confirm & Unlock VIP
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleRejectSub(sub)}
+                          className="text-xs h-8 px-3 gap-1.5"
+                        >
+                          <XCircle className="size-3.5" /> Reject
+                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => handleDeleteSub(sub.id)}
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-400"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-rose-400"
                         >
-                          <Trash2 className="size-3" />
+                          <Trash2 className="size-3.5" />
                         </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ACTIVE & ALL SUBSCRIBERS TABLE */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Users className="size-4 text-emerald-400" /> Confirmed & Active Subscribers ({activeSubs.length})
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Subscribers currently active or registered in Supabase database.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="relative w-64">
+                  <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search email, wallet, tx..."
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    className="h-8 pl-8 text-xs bg-card/60"
+                  />
+                </div>
+
+                <Button
+                  size="sm"
+                  onClick={() => setAddCustomerOpen(true)}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 text-xs h-8"
+                >
+                  <Plus className="size-4" /> Add Manual
+                </Button>
+              </div>
+            </div>
+
+            <div className="border border-border/60 rounded-xl overflow-hidden bg-card/40">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-muted/40 text-muted-foreground border-b border-border/40">
+                  <tr>
+                    <th className="p-3">Customer Email</th>
+                    <th className="p-3">Plan</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3">Chain & TX Hash</th>
+                    <th className="p-3">Amount Paid</th>
+                    <th className="p-3">Expiry Date</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/30">
+                  {filteredSubs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                        No subscribers found.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredSubs.map((sub) => {
+                      const isTron = (sub.chain || '').toUpperCase().includes('TRC') || (sub.chain || '').toUpperCase() === 'TRC20'
+                      const explorerUrl = sub.tx_hash
+                        ? isTron
+                          ? `https://tronscan.org/#/transaction/${sub.tx_hash}`
+                          : `https://bscscan.com/tx/${sub.tx_hash}`
+                        : null
+
+                      return (
+                        <tr key={sub.id} className="hover:bg-card/60">
+                          <td className="p-3 font-semibold text-foreground">{sub.email}</td>
+                          <td className="p-3">
+                            <Badge
+                              variant="outline"
+                              className={
+                                sub.plan === 'vip'
+                                  ? 'border-amber-500/40 text-amber-400 bg-amber-500/10'
+                                  : 'border-cyan-500/40 text-cyan-400 bg-cyan-500/10'
+                              }
+                            >
+                              {sub.plan.toUpperCase()}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
+                            {sub.status === 'active' ? (
+                              <span className="text-emerald-400 flex items-center gap-1 font-bold">
+                                <Check className="size-3" /> Active
+                              </span>
+                            ) : sub.status === 'pending' ? (
+                              <span className="text-amber-400 flex items-center gap-1 font-bold">
+                                <Clock className="size-3 animate-pulse" /> Pending Approval
+                              </span>
+                            ) : (
+                              <span className="text-rose-400 flex items-center gap-1 font-bold">
+                                <XCircle className="size-3" /> {sub.status.toUpperCase()}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            <span className="block text-[10px] text-cyan-400 font-bold">{sub.chain || 'USDT'}</span>
+                            {sub.tx_hash ? (
+                              <span className="flex items-center gap-1">
+                                <span className="font-mono text-[10px] truncate max-w-[100px] inline-block">
+                                  {sub.tx_hash}
+                                </span>
+                                {explorerUrl && (
+                                  <a
+                                    href={explorerUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-cyan-400 hover:text-cyan-300"
+                                    title="View on Explorer"
+                                  >
+                                    <ExternalLink className="size-3" />
+                                  </a>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground">Direct Manual</span>
+                            )}
+                          </td>
+                          <td className="p-3 font-bold text-foreground">${sub.amount_usdt ?? 29}</td>
+                          <td className="p-3 text-muted-foreground">
+                            {sub.expires_at ? new Date(sub.expires_at).toLocaleDateString() : 'Lifetime'}
+                          </td>
+                          <td className="p-3 text-right space-x-1">
+                            {sub.status === 'pending' && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleApproveSub(sub)}
+                                className="h-6 text-[10px] px-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                              >
+                                Confirm
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteSub(sub.id)}
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-400"
+                              title="Delete subscriber record"
+                            >
+                              <Trash2 className="size-3" />
+                            </Button>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

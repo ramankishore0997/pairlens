@@ -726,6 +726,77 @@ export const SupabaseDataService = {
     safeStorage.dispatch('stac:db:subs:updated', updated)
   },
 
+  async approveSubscription(id: string): Promise<void> {
+    const existing = await this.getSubscriptions()
+    const target = existing.find((s) => s.id === id)
+    if (!target) throw new Error('Subscription not found')
+
+    const planDurationMs =
+      target.plan === 'vip' || (target.amount_usdt && target.amount_usdt >= 600)
+        ? 86400000 * 365 * 10
+        : (target.amount_usdt && target.amount_usdt >= 350)
+          ? 86400000 * 365
+          : (target.amount_usdt && target.amount_usdt >= 150)
+            ? 86400000 * 180
+            : 86400000 * 30
+
+    const now = new Date()
+    const expiresAt = new Date(now.getTime() + planDurationMs).toISOString()
+    const assignedPlan = target.plan === 'vip' || (target.amount_usdt && target.amount_usdt >= 600) ? 'vip' : 'pro'
+
+    const updates: Partial<DbSubscription> = {
+      status: 'active',
+      plan: assignedPlan,
+      starts_at: now.toISOString(),
+      expires_at: expiresAt,
+    }
+
+    try {
+      await supabase.from('subscriptions').update(updates).eq('id', id)
+      if (target.email) {
+        await supabase
+          .from('app_users')
+          .update({ plan: assignedPlan })
+          .eq('email', target.email.toLowerCase().trim())
+      }
+    } catch {}
+
+    const updated = existing.map((s) => (s.id === id ? { ...s, ...updates } : s))
+    safeStorage.setItem(SUBS_CACHE_KEY, JSON.stringify(updated))
+    safeStorage.dispatch('stac:db:subs:updated', updated)
+
+    const curr = this.getCurrentUser()
+    if (curr && curr.email.toLowerCase() === target.email.toLowerCase()) {
+      curr.plan = assignedPlan
+      safeStorage.setItem(USER_SESSION_KEY, JSON.stringify(curr))
+      safeStorage.dispatch('stac:auth:changed', curr)
+    }
+  },
+
+  async rejectSubscription(id: string): Promise<void> {
+    const existing = await this.getSubscriptions()
+    const target = existing.find((s) => s.id === id)
+    if (!target) return
+
+    const updates: Partial<DbSubscription> = {
+      status: 'expired',
+    }
+
+    try {
+      await supabase.from('subscriptions').update(updates).eq('id', id)
+      if (target.email) {
+        await supabase
+          .from('app_users')
+          .update({ plan: 'free' })
+          .eq('email', target.email.toLowerCase().trim())
+      }
+    } catch {}
+
+    const updated = existing.map((s) => (s.id === id ? { ...s, ...updates } : s))
+    safeStorage.setItem(SUBS_CACHE_KEY, JSON.stringify(updated))
+    safeStorage.dispatch('stac:db:subs:updated', updated)
+  },
+
   async deleteSubscription(id: string): Promise<void> {
     try {
       await supabase.from('subscriptions').delete().eq('id', id)
