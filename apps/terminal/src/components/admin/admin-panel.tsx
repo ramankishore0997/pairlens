@@ -83,6 +83,12 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     chart_image_url: '',
   })
   const [closeOutcome, setCloseOutcome] = useState<DbTrade['outcome']>('tp1')
+  const [customExitPrice, setCustomExitPrice] = useState('')
+  const [closeNotes, setCloseNotes] = useState('')
+  const [closeProofUrl, setCloseProofUrl] = useState('')
+  const [closePnlPercent, setClosePnlPercent] = useState('')
+  const [closePips, setClosePips] = useState('')
+  const [closeTvLinkInput, setCloseTvLinkInput] = useState('')
   const [tvLinkInput, setTvLinkInput] = useState('')
 
   const handleImportTvLink = (url: string) => {
@@ -130,6 +136,26 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     }
   }
 
+  const handleImportCloseTvLink = (url: string) => {
+    setCloseTvLinkInput(url)
+    const trimmed = url.trim()
+    if (!trimmed) return
+
+    const matchFull = trimmed.match(/tradingview\.com\/chart\/([A-Za-z0-9_]+)\/([A-Za-z0-9]+)(?:-([^\s/?#]+))?/i)
+    const matchShort = trimmed.match(/tradingview\.com\/(?:chart|x|symbols)\/([A-Za-z0-9]+)/i)
+
+    let ideaId = ''
+    if (matchFull) ideaId = matchFull[2]
+    else if (matchShort) ideaId = matchShort[1]
+
+    if (ideaId) {
+      const firstChar = ideaId.charAt(0).toLowerCase()
+      const imageUrl = `https://s3.tradingview.com/${firstChar}/${ideaId}_big.png`
+      setCloseProofUrl(imageUrl)
+      toast.success('TradingView Profit / Result Snapshot Attached!')
+    }
+  }
+
   // Edit Trade state
   const [editTradeOpen, setEditTradeOpen] = useState(false)
   const [editTradeForm, setEditTradeForm] = useState<{
@@ -148,6 +174,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     leverage: string
     notes: string
     chart_image_url: string
+    close_image_url: string
     status: 'active' | 'closed'
     outcome: DbTrade['outcome']
   }>({
@@ -166,6 +193,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     leverage: '50',
     notes: '',
     chart_image_url: '',
+    close_image_url: '',
     status: 'active',
     outcome: 'open',
   })
@@ -319,12 +347,40 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     }
   }
 
+  // Open Close Trade Modal with pre-fills
+  const openCloseModal = (trade: DbTrade, defaultOutcome: DbTrade['outcome'] = 'tp1') => {
+    setSelectedTrade(trade)
+    setCloseOutcome(defaultOutcome)
+    let p = trade.tp1_price ? String(trade.tp1_price) : ''
+    if (defaultOutcome === 'tp2' && trade.tp2_price) p = String(trade.tp2_price)
+    if (defaultOutcome === 'tp3' && trade.tp3_price) p = String(trade.tp3_price)
+    if (defaultOutcome === 'sl') p = String(trade.sl_price)
+    setCustomExitPrice(p)
+    setCloseNotes('')
+    setCloseProofUrl(trade.close_image_url || '')
+    setCloseTvLinkInput('')
+    setClosePnlPercent('')
+    setClosePips('')
+    setCloseTradeOpen(true)
+  }
+
   // Handle close trade
   const handleCloseTradeConfirm = async () => {
     if (!selectedTrade) return
     const exitP = customExitPrice ? parseFloat(customExitPrice) : undefined
-    await SupabaseDataService.closeTrade(selectedTrade.id, closeOutcome, exitP)
-    toast.success(`Trade closed (${closeOutcome.toUpperCase()})`)
+    const customPnl = closePnlPercent !== '' ? parseFloat(closePnlPercent) : undefined
+    const customP = closePips !== '' ? parseInt(closePips, 10) : undefined
+
+    await SupabaseDataService.closeTrade(
+      selectedTrade.id,
+      closeOutcome,
+      exitP,
+      closeNotes.trim() || undefined,
+      closeProofUrl.trim() || undefined,
+      customPnl,
+      customP
+    )
+    toast.success(`✓ Trade closed with Profit Proof (${closeOutcome.toUpperCase()})`)
     setCloseTradeOpen(false)
     setSelectedTrade(null)
     loadData()
@@ -354,6 +410,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
       leverage: trade.leverage ? String(trade.leverage) : '50',
       notes: trade.notes || '',
       chart_image_url: trade.chart_image_url || '',
+      close_image_url: trade.close_image_url || '',
       status: trade.status,
       outcome: trade.outcome || (trade.status === 'active' ? 'open' : 'tp1'),
     })
@@ -390,6 +447,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
         leverage: editTradeForm.leverage ? parseFloat(editTradeForm.leverage) : 1,
         notes: editTradeForm.notes.trim() || undefined,
         chart_image_url: editTradeForm.chart_image_url.trim() || undefined,
+        close_image_url: editTradeForm.close_image_url.trim() || undefined,
         status: editTradeForm.status,
         outcome: editTradeForm.outcome,
       }
@@ -753,33 +811,21 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                         <div className="flex items-center gap-1">
                           <Button
                             size="sm"
-                            onClick={() => {
-                              setSelectedTrade(trade)
-                              setCloseOutcome('tp1')
-                              setCloseTradeOpen(true)
-                            }}
+                            onClick={() => openCloseModal(trade, 'tp1')}
                             className="h-6 text-[10px] px-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
                           >
                             Hit TP1 🎯
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => {
-                              setSelectedTrade(trade)
-                              setCloseOutcome('tp2')
-                              setCloseTradeOpen(true)
-                            }}
+                            onClick={() => openCloseModal(trade, 'tp2')}
                             className="h-6 text-[10px] px-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold"
                           >
                             Hit TP2 🎯
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => {
-                              setSelectedTrade(trade)
-                              setCloseOutcome('sl')
-                              setCloseTradeOpen(true)
-                            }}
+                            onClick={() => openCloseModal(trade, 'sl')}
                             className="h-6 text-[10px] px-2 bg-rose-600 hover:bg-rose-500 text-white font-bold"
                           >
                             Hit SL ❌
@@ -1593,82 +1639,241 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
         </DialogContent>
       </Dialog>
 
-      {/* CLOSE TRADE DIALOG */}
+      {/* CLOSE TRADE / ATTACH PROFIT PROOF DIALOG */}
       <Dialog open={closeTradeOpen} onOpenChange={setCloseTradeOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-xl md:max-w-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-6 bg-card border-border/80 rounded-2xl shadow-2xl font-mono text-xs">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold">
-              Close Signal: {selectedTrade?.symbol}
+            <div className="flex items-center justify-between pb-2 border-b border-border/40">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className={
+                    selectedTrade?.type === 'BUY'
+                      ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
+                      : 'border-rose-500 text-rose-400 bg-rose-500/10'
+                  }
+                >
+                  {selectedTrade?.type}
+                </Badge>
+                <span className="text-base font-bold text-foreground">{selectedTrade?.symbol}</span>
+              </div>
+              <Badge variant="outline" className="border-amber-500/40 text-amber-400 text-[10px]">
+                Closing Desk
+              </Badge>
+            </div>
+            <DialogTitle className="text-base font-bold mt-2 flex items-center gap-2">
+              🏆 Close Signal & Attach Profit Proof Evidence
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Select the exit trigger outcome for this trade.
+              Select outcome trigger, attach a screenshot proof showing the profit/exit, and move to completed track record.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setCloseOutcome('tp1')}
-                className={`p-2.5 rounded-lg border text-xs font-bold text-left ${
-                  closeOutcome === 'tp1' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : 'border-border'
-                }`}
-              >
-                🎯 Target 1 ({selectedTrade?.tp1_price})
-              </button>
+            {/* Outcome Selection */}
+            <div>
+              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1.5 block">
+                1. Select Exit Trigger Outcome *
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCloseOutcome('tp1')
+                    if (selectedTrade?.tp1_price) setCustomExitPrice(String(selectedTrade.tp1_price))
+                  }}
+                  className={`p-2.5 rounded-lg border text-xs font-bold text-left transition-all ${
+                    closeOutcome === 'tp1'
+                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 shadow-sm'
+                      : 'border-border/60 hover:border-border text-muted-foreground'
+                  }`}
+                >
+                  🎯 Target 1 ({selectedTrade?.tp1_price})
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setCloseOutcome('tp2')}
-                className={`p-2.5 rounded-lg border text-xs font-bold text-left ${
-                  closeOutcome === 'tp2' ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400' : 'border-border'
-                }`}
-              >
-                🎯 Target 2 ({selectedTrade?.tp2_price ?? 'N/A'})
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCloseOutcome('tp2')
+                    if (selectedTrade?.tp2_price) setCustomExitPrice(String(selectedTrade.tp2_price))
+                  }}
+                  className={`p-2.5 rounded-lg border text-xs font-bold text-left transition-all ${
+                    closeOutcome === 'tp2'
+                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 shadow-sm'
+                      : 'border-border/60 hover:border-border text-muted-foreground'
+                  }`}
+                >
+                  🎯 Target 2 ({selectedTrade?.tp2_price ?? 'N/A'})
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setCloseOutcome('sl')}
-                className={`p-2.5 rounded-lg border text-xs font-bold text-left ${
-                  closeOutcome === 'sl' ? 'border-rose-500 bg-rose-500/10 text-rose-400' : 'border-border'
-                }`}
-              >
-                ❌ Stop Loss ({selectedTrade?.sl_price})
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCloseOutcome('sl')
+                    if (selectedTrade?.sl_price) setCustomExitPrice(String(selectedTrade.sl_price))
+                  }}
+                  className={`p-2.5 rounded-lg border text-xs font-bold text-left transition-all ${
+                    closeOutcome === 'sl'
+                      ? 'border-rose-500 bg-rose-500/15 text-rose-400 shadow-sm'
+                      : 'border-border/60 hover:border-border text-muted-foreground'
+                  }`}
+                >
+                  ❌ Stop Loss ({selectedTrade?.sl_price})
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setCloseOutcome('manual')}
-                className={`p-2.5 rounded-lg border text-xs font-bold text-left ${
-                  closeOutcome === 'manual' ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400' : 'border-border'
-                }`}
-              >
-                ⚖️ Manual Exit Price
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setCloseOutcome('manual')}
+                  className={`p-2.5 rounded-lg border text-xs font-bold text-left transition-all ${
+                    closeOutcome === 'manual'
+                      ? 'border-cyan-500 bg-cyan-500/15 text-cyan-400 shadow-sm'
+                      : 'border-border/60 hover:border-border text-muted-foreground'
+                  }`}
+                >
+                  ⚖️ Custom Exit
+                </button>
+              </div>
             </div>
 
-            {closeOutcome === 'manual' && (
+            {/* 📸 Attach Profit Proof Screenshot */}
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                  <Sparkles className="size-3.5" /> 📸 2. Attach Profit Proof / Result Screenshot (TradingView / Image Link)
+                </label>
+                {closeProofUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCloseProofUrl('')
+                      setCloseTvLinkInput('')
+                    }}
+                    className="text-[10px] text-rose-400 hover:underline"
+                  >
+                    Clear Proof
+                  </button>
+                )}
+              </div>
+
+              {/* 1-Click Auto-Fill from TradingView Idea Link */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Paste TradingView chart link (e.g. https://www.tradingview.com/chart/AUDUSD/...)"
+                  value={closeTvLinkInput}
+                  onChange={(e) => handleImportCloseTvLink(e.target.value)}
+                  className="text-xs h-8 bg-background/80"
+                />
+              </div>
+
+              {/* Direct Image URL input */}
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Custom Exit Price</label>
+                <span className="text-[10px] text-muted-foreground block mb-1">
+                  Or Paste Direct Screenshot Link (Imgur, PostImage, MT5 / Broker screenshot):
+                </span>
+                <Input
+                  placeholder="https://i.imgur.com/... or https://..."
+                  value={closeProofUrl}
+                  onChange={(e) => setCloseProofUrl(e.target.value)}
+                  className="text-xs h-8 bg-background/80"
+                />
+              </div>
+
+              {/* Live Proof Screenshot Preview */}
+              {closeProofUrl && closeProofUrl.trim().length > 5 && (
+                <div className="rounded-lg border border-amber-500/40 bg-black/60 p-2.5 flex items-center justify-between gap-3 mt-1">
+                  <div className="h-16 w-28 rounded overflow-hidden bg-black flex items-center justify-center shrink-0 border border-white/10">
+                    <img
+                      src={closeProofUrl}
+                      alt="Profit proof preview"
+                      className="h-full w-full object-contain"
+                      onError={(e) => {
+                        const target = e.currentTarget
+                        if (target.src.includes('_big.png')) {
+                          target.src = target.src.replace('_big.png', '_mid.png')
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0 text-[11px] space-y-0.5">
+                    <span className="text-emerald-400 font-bold block flex items-center gap-1">
+                      <Check className="size-3" /> Profit Proof Image Attached
+                    </span>
+                    <p className="text-[10px] text-muted-foreground font-mono truncate">{closeProofUrl}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => window.open(closeProofUrl, '_blank')}
+                    className="h-7 text-[10px] gap-1 px-2 border-amber-500/40 text-amber-400 shrink-0"
+                  >
+                    <ExternalLink className="size-3" /> View
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Price Levels & PnL Adjustment */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[11px] text-muted-foreground mb-1 block">Exit Price ($)</label>
                 <Input
                   type="number"
                   step="any"
-                  placeholder="Enter exit price"
+                  placeholder="e.g. 1.08950"
                   value={customExitPrice}
                   onChange={(e) => setCustomExitPrice(e.target.value)}
-                  className="font-mono font-bold"
+                  className="h-8 font-bold text-foreground"
                 />
               </div>
-            )}
+
+              <div>
+                <label className="text-[11px] text-muted-foreground mb-1 block">Custom P&L % (Optional)</label>
+                <Input
+                  type="number"
+                  step="any"
+                  placeholder="Auto-calculated if blank"
+                  value={closePnlPercent}
+                  onChange={(e) => setClosePnlPercent(e.target.value)}
+                  className="h-8 font-bold text-emerald-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] text-muted-foreground mb-1 block">Pips Gain (Optional)</label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 85"
+                  value={closePips}
+                  onChange={(e) => setClosePips(e.target.value)}
+                  className="h-8 font-bold text-cyan-400"
+                />
+              </div>
+            </div>
+
+            {/* Closing / Strategy Outcome Notes */}
+            <div>
+              <label className="text-[11px] text-muted-foreground mb-1 block">
+                Closing Commentary / Result Summary (Shown to Users)
+              </label>
+              <Input
+                placeholder="e.g. Target 1 reached with +85 pips profit. Secured 50% lot and moved SL to Entry."
+                value={closeNotes}
+                onChange={(e) => setCloseNotes(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="pt-2 border-t border-border/40">
             <Button variant="ghost" onClick={() => setCloseTradeOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCloseTradeConfirm} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold">
-              Confirm & Move to Past Trades
+            <Button
+              onClick={handleCloseTradeConfirm}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-9 px-4 gap-1.5 shadow-md shadow-emerald-600/20"
+            >
+              <Check className="size-4" /> Confirm & Publish Profit Proof
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1915,60 +2120,100 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
             </div>
 
             {/* Screenshot URL & Live Preview */}
-            <div className="p-3 rounded-xl bg-background/80 border border-border/50 space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-cyan-400 flex items-center gap-1.5">
-                  📸 Trade Setup Chart Screenshot (Image URL / Link)
-                </label>
-                {editTradeForm.chart_image_url && (
-                  <button
-                    type="button"
-                    onClick={() => setEditTradeForm({ ...editTradeForm, chart_image_url: '' })}
-                    className="text-[10px] text-rose-400 hover:underline"
-                  >
-                    Clear Image
-                  </button>
-                )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Entry Setup Screenshot */}
+              <div className="p-3 rounded-xl bg-background/80 border border-border/50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-cyan-400 flex items-center gap-1.5">
+                    📸 1. Entry Setup Screenshot (URL)
+                  </label>
+                  {editTradeForm.chart_image_url && (
+                    <button
+                      type="button"
+                      onClick={() => setEditTradeForm({ ...editTradeForm, chart_image_url: '' })}
+                      className="text-[10px] text-rose-400 hover:underline"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                <Input
+                  placeholder="Paste Entry Chart Link / Imgur URL"
+                  value={editTradeForm.chart_image_url}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, chart_image_url: e.target.value })}
+                  className="text-xs"
+                />
+
+                {editTradeForm.chart_image_url && editTradeForm.chart_image_url.trim().length > 5 ? (
+                  <div className="mt-2 rounded-lg border border-border/60 overflow-hidden bg-black/60 p-2 flex items-center justify-between gap-2">
+                    <div className="h-14 w-24 rounded overflow-hidden bg-black flex items-center justify-center shrink-0 border border-white/10">
+                      <img
+                        src={editTradeForm.chart_image_url}
+                        alt="Entry Setup Preview"
+                        className="h-full w-full object-contain"
+                        onError={(e) => {
+                          const target = e.currentTarget
+                          if (target.src.includes('_big.png')) {
+                            target.src = target.src.replace('_big.png', '_mid.png')
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 text-[10px] text-muted-foreground">
+                      <span className="text-cyan-400 font-bold block">✓ Entry Chart</span>
+                      <p className="truncate">{editTradeForm.chart_image_url}</p>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
-              <Input
-                placeholder="Paste Image Link: https://i.imgur.com/... or TradingView snapshot link"
-                value={editTradeForm.chart_image_url}
-                onChange={(e) => setEditTradeForm({ ...editTradeForm, chart_image_url: e.target.value })}
-                className="text-xs"
-              />
-
-              {editTradeForm.chart_image_url && editTradeForm.chart_image_url.trim().length > 5 ? (
-                <div className="mt-2 rounded-lg border border-border/60 overflow-hidden bg-black/60 p-2 flex items-center justify-between gap-3">
-                  <div className="h-16 w-28 rounded overflow-hidden bg-black flex items-center justify-center shrink-0 border border-white/10">
-                    <img
-                      src={editTradeForm.chart_image_url}
-                      alt="Preview"
-                      className="h-full w-full object-contain"
-                      onError={(e) => {
-                        ;(e.target as HTMLElement).style.display = 'none'
-                      }}
-                    />
-                  </div>
-                  <div className="flex-1 text-[10px] text-muted-foreground space-y-1">
-                    <span className="text-emerald-400 font-bold block">✓ Custom Screenshot Attached</span>
-                    <p className="truncate max-w-[280px]">{editTradeForm.chart_image_url}</p>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => window.open(editTradeForm.chart_image_url, '_blank')}
-                    className="h-7 text-[10px] gap-1 px-2 border-cyan-500/30 text-cyan-400 shrink-0"
-                  >
-                    <ExternalLink className="size-3" /> Test
-                  </Button>
+              {/* Closing Profit Proof Screenshot */}
+              <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
+                    🏆 2. Profit Proof / Exit Screenshot (URL)
+                  </label>
+                  {editTradeForm.close_image_url && (
+                    <button
+                      type="button"
+                      onClick={() => setEditTradeForm({ ...editTradeForm, close_image_url: '' })}
+                      className="text-[10px] text-rose-400 hover:underline"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <p className="text-[10.5px] text-muted-foreground italic">
-                  💡 Leave blank if you want the system to automatically generate the dynamic candlestick level snapshot.
-                </p>
-              )}
+
+                <Input
+                  placeholder="Paste Profit Proof Link / TradingView update URL"
+                  value={editTradeForm.close_image_url}
+                  onChange={(e) => setEditTradeForm({ ...editTradeForm, close_image_url: e.target.value })}
+                  className="text-xs"
+                />
+
+                {editTradeForm.close_image_url && editTradeForm.close_image_url.trim().length > 5 ? (
+                  <div className="mt-2 rounded-lg border border-amber-500/40 overflow-hidden bg-black/60 p-2 flex items-center justify-between gap-2">
+                    <div className="h-14 w-24 rounded overflow-hidden bg-black flex items-center justify-center shrink-0 border border-white/10">
+                      <img
+                        src={editTradeForm.close_image_url}
+                        alt="Profit Proof Preview"
+                        className="h-full w-full object-contain"
+                        onError={(e) => {
+                          const target = e.currentTarget
+                          if (target.src.includes('_big.png')) {
+                            target.src = target.src.replace('_big.png', '_mid.png')
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 text-[10px] text-muted-foreground">
+                      <span className="text-amber-400 font-bold block">✓ Profit Proof</span>
+                      <p className="truncate">{editTradeForm.close_image_url}</p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <DialogFooter className="pt-3">

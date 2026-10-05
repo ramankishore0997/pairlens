@@ -32,6 +32,7 @@ export type DbTrade = {
   leverage?: number
   notes?: string
   chart_image_url?: string
+  close_image_url?: string
   status: 'active' | 'closed'
   outcome: 'open' | 'tp1' | 'tp2' | 'tp3' | 'sl' | 'manual'
   pnl_percent?: number
@@ -377,7 +378,10 @@ export const SupabaseDataService = {
     id: string,
     outcome: DbTrade['outcome'],
     exitPrice?: number,
-    notes?: string
+    notes?: string,
+    closeImageUrl?: string,
+    customPnl?: number,
+    customPips?: number
   ): Promise<void> {
     const existing = await this.getTrades()
     const trade = existing.find((t) => t.id === id)
@@ -390,16 +394,20 @@ export const SupabaseDataService = {
 
     const isBuy = trade.type === 'BUY'
     const diff = isBuy ? price - trade.entry_price : trade.entry_price - price
-    const pnl = Number(((diff / trade.entry_price) * 100).toFixed(2))
-    const pips = Math.round(Math.abs(diff) * (trade.symbol.includes('JPY') ? 100 : 10000))
+    const calculatedPnl = Number(((diff / trade.entry_price) * 100).toFixed(2))
+    const calculatedPips = Math.round(Math.abs(diff) * (trade.symbol.includes('JPY') ? 100 : 10000))
+
+    const pnl = customPnl !== undefined && !isNaN(customPnl) ? customPnl : calculatedPnl
+    const pips = customPips !== undefined && !isNaN(customPips) ? customPips : (diff >= 0 ? calculatedPips : -calculatedPips)
 
     const updates: Partial<DbTrade> = {
       status: 'closed',
       outcome,
       current_price: price,
       pnl_percent: pnl,
-      pips: diff >= 0 ? pips : -pips,
+      pips,
       notes: notes ? `${trade.notes ? trade.notes + ' | ' : ''}${notes}` : trade.notes,
+      close_image_url: closeImageUrl ? closeImageUrl.trim() : undefined,
       closed_at: new Date().toISOString(),
     }
 

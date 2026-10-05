@@ -63,6 +63,7 @@ export type TradeSignal = {
   leverage?: string
   notes?: string
   chartImageUrl?: string
+  closeImageUrl?: string
   status: 'ACTIVE' | 'CLOSED'
   closeReason?: 'TP1' | 'TP2' | 'TP3' | 'SL' | 'MANUAL' | 'CANCELLED'
   closePrice?: number
@@ -190,6 +191,7 @@ export function TradesHub() {
           leverage: t.leverage ? `1:${t.leverage}` : undefined,
           notes: t.notes,
           chartImageUrl: t.chart_image_url,
+          closeImageUrl: t.close_image_url || undefined,
           status: t.status === 'active' ? 'ACTIVE' : 'CLOSED',
           closeReason: (t.outcome?.toUpperCase() as any) || 'TP1',
           closePrice: t.current_price ? Number(t.current_price) : undefined,
@@ -632,15 +634,15 @@ export function TradesHub() {
                         </div>
                       </div>
 
-                      {/* TradingView Chart Snapshot / Visual Setup */}
-                      {trade.chartImageUrl && (
+                      {/* TradingView Chart Snapshot / Visual Setup / Profit Proof */}
+                      {(trade.closeImageUrl || trade.chartImageUrl) && (
                         <div
                           onClick={() => setSelectedTradeInspection(trade)}
                           className="relative mt-3 rounded-lg overflow-hidden border border-border/60 bg-black/60 cursor-pointer group/chart"
-                          title="Click to zoom chart analysis"
+                          title="Click to zoom chart analysis / proof"
                         >
                           <img
-                            src={trade.chartImageUrl}
+                            src={trade.status === 'CLOSED' && trade.closeImageUrl ? trade.closeImageUrl : trade.chartImageUrl}
                             alt={`${trade.symbol} Chart Analysis`}
                             className="w-full h-40 object-cover transition-transform duration-300 group-hover/chart:scale-105"
                             onError={(e) => {
@@ -651,9 +653,15 @@ export function TradesHub() {
                             }}
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-between p-2">
-                            <span className="text-[10.5px] font-mono font-bold text-cyan-400 bg-black/70 px-2 py-0.5 rounded border border-cyan-500/30 flex items-center gap-1.5 shadow-sm">
-                              <Eye className="size-3.5" /> TradingView Analysis
-                            </span>
+                            {trade.status === 'CLOSED' && trade.closeImageUrl ? (
+                              <span className="text-[10.5px] font-mono font-bold text-emerald-400 bg-black/80 px-2 py-0.5 rounded border border-emerald-500/40 flex items-center gap-1.5 shadow-sm">
+                                🏆 Profit Proof Attached
+                              </span>
+                            ) : (
+                              <span className="text-[10.5px] font-mono font-bold text-cyan-400 bg-black/70 px-2 py-0.5 rounded border border-cyan-500/30 flex items-center gap-1.5 shadow-sm">
+                                <Eye className="size-3.5" /> TradingView Analysis
+                              </span>
+                            )}
                             <span className="text-[9.5px] font-mono text-muted-foreground bg-black/70 px-1.5 py-0.5 rounded">
                               Click to Zoom 🔍
                             </span>
@@ -776,9 +784,13 @@ export function TradesHub() {
                             <button
                               type="button"
                               onClick={() => setSelectedTradeInspection(trade)}
-                              className="text-[10.5px] font-mono text-muted-foreground hover:text-cyan-400 flex items-center gap-1 bg-muted/30 px-2 py-0.5 rounded border border-border/40 transition-colors"
+                              className={`text-[10.5px] font-mono flex items-center gap-1 px-2 py-0.5 rounded border transition-colors ${
+                                trade.closeImageUrl
+                                  ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20'
+                                  : 'text-muted-foreground hover:text-cyan-400 bg-muted/30 border-border/40'
+                              }`}
                             >
-                              <Eye className="size-3" /> Proof
+                              {trade.closeImageUrl ? '🏆 Proof' : <><Eye className="size-3" /> Setup</>}
                             </button>
                             <span
                               className={`inline-flex items-center gap-1 font-mono text-xs font-bold px-2 py-0.5 rounded ${
@@ -863,6 +875,22 @@ export function TradesHub() {
                     {selectedTradeInspection.status === 'ACTIVE' ? '🟢 ACTIVE (Signal In Progress)' : `🏁 CLOSED (${selectedTradeInspection.closeReason || 'COMPLETED'})`}
                   </span>
                 </div>
+                {selectedTradeInspection.status === 'CLOSED' && selectedTradeInspection.closePrice && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Exit / Close Price:</span>
+                    <span className="text-cyan-400 font-bold">{selectedTradeInspection.closePrice}</span>
+                  </div>
+                )}
+                {selectedTradeInspection.closeImageUrl && (
+                  <div className="flex items-center justify-between text-emerald-400 bg-emerald-500/10 p-1.5 rounded border border-emerald-500/30">
+                    <span className="flex items-center gap-1 font-bold text-[11px]">
+                      <CheckCircle2 className="size-3.5" /> Profit Proof Verified:
+                    </span>
+                    <span className="text-[10px] underline cursor-pointer" onClick={() => setSelectedTradeInspection(selectedTradeInspection)}>
+                      Snapshot Attached Above ⬆
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Target 1 (TP1):</span>
                   <span className="text-emerald-400 font-bold">{selectedTradeInspection.target1}</span>

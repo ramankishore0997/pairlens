@@ -34,13 +34,22 @@ export function TradeChartSnapshot({
 }) {
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   const [zoomScale, setZoomScale] = useState(1)
+  
+  const hasCloseImage = Boolean(trade.closeImageUrl && trade.closeImageUrl.trim().length > 5)
+  const [activeTab, setActiveTab] = useState<'ENTRY' | 'PROOF'>(
+    trade.status === 'CLOSED' && hasCloseImage ? 'PROOF' : 'ENTRY'
+  )
+
   const isBuy = trade.type === 'BUY'
   const rr = (
     Math.abs(trade.target1 - trade.entryPrice) /
     Math.max(0.00001, Math.abs(trade.entryPrice - trade.stopLoss))
   ).toFixed(2)
 
-  const hasCustomImage = Boolean(trade.chartImageUrl && trade.chartImageUrl.trim().length > 5)
+  const hasEntryImage = Boolean(trade.chartImageUrl && trade.chartImageUrl.trim().length > 5)
+  const isViewingProof = activeTab === 'PROOF' && hasCloseImage
+  const currentImageUrl = isViewingProof ? trade.closeImageUrl : trade.chartImageUrl
+  const hasCurrentImage = isViewingProof ? Boolean(trade.closeImageUrl) : hasEntryImage
 
   // Handle ESC key and scroll locking when fullscreen is active
   useEffect(() => {
@@ -74,7 +83,7 @@ export function TradeChartSnapshot({
   return (
     <div className="relative rounded-xl border border-border/60 bg-card/60 overflow-hidden flex flex-col group">
       {/* Top Chart Header */}
-      <div className="flex items-center justify-between px-3.5 py-2 bg-background/80 border-b border-border/40 text-xs font-mono">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 bg-background/80 border-b border-border/40 text-xs font-mono">
         <div className="flex items-center gap-2">
           <Badge
             variant="outline"
@@ -92,10 +101,42 @@ export function TradeChartSnapshot({
           </span>
         </div>
 
+        {/* Tab Switcher if Profit Proof Available */}
+        {hasCloseImage && (
+          <div className="flex items-center gap-1 bg-background/90 p-0.5 rounded-lg border border-border/60">
+            <button
+              type="button"
+              onClick={() => setActiveTab('ENTRY')}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                activeTab === 'ENTRY'
+                  ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              📸 Entry Setup
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('PROOF')}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${
+                activeTab === 'PROOF'
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-xs'
+                  : 'text-emerald-400/70 hover:text-emerald-300'
+              }`}
+            >
+              🏆 Profit Proof
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
-          {hasCustomImage ? (
+          {isViewingProof ? (
+            <Badge variant="outline" className="text-[9.5px] border-emerald-500/40 text-emerald-400 font-mono flex items-center gap-1 bg-emerald-500/10">
+              <CheckCircle2 className="size-2.5" /> Profit / Exit Proof
+            </Badge>
+          ) : hasEntryImage ? (
             <Badge variant="outline" className="text-[9.5px] border-cyan-500/40 text-cyan-400 font-mono flex items-center gap-1 bg-cyan-500/5">
-              <ImageIcon className="size-2.5" /> Trader Screenshot
+              <ImageIcon className="size-2.5" /> Entry Setup
             </Badge>
           ) : (
             <Badge variant="outline" className="text-[9.5px] border-emerald-500/40 text-emerald-400 font-mono flex items-center gap-1 bg-emerald-500/5">
@@ -119,21 +160,21 @@ export function TradeChartSnapshot({
 
       {/* Chart Canvas / Thumbnail View */}
       <div className="relative w-full overflow-hidden bg-[#0a0e17]" style={{ height: `${height}px` }}>
-        {hasCustomImage ? (
-          /* Custom Admin Uploaded Screenshot */
+        {hasCurrentImage ? (
+          /* Image Snapshot (Entry or Profit Proof) */
           <div
             className="w-full h-full cursor-pointer flex items-center justify-center relative overflow-hidden group/img bg-black/40"
             onClick={() => setFullscreenOpen(true)}
           >
             <img
-              src={trade.chartImageUrl}
-              alt={`${trade.symbol} Trade Setup Chart`}
+              src={currentImageUrl}
+              alt={`${trade.symbol} ${isViewingProof ? 'Profit Proof' : 'Trade Setup'} Chart`}
               className="w-full h-full object-contain object-center transition-transform duration-300 group-hover/img:scale-[1.02]"
               loading="lazy"
             />
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
               <span className="text-xs font-mono text-white bg-black/85 px-3.5 py-1.5 rounded-full border border-white/20 flex items-center gap-2 shadow-2xl backdrop-blur-md">
-                <Maximize2 className="size-3.5 text-cyan-400" /> Click to Expand Full Screen
+                <Maximize2 className="size-3.5 text-cyan-400" /> Click to Expand {isViewingProof ? 'Profit Proof' : 'Full Screen'}
               </span>
             </div>
           </div>
@@ -171,7 +212,8 @@ export function TradeChartSnapshot({
 
           {trade.status === 'CLOSED' && (
             <div className="bg-emerald-500/15 backdrop-blur-md border border-emerald-500/40 rounded-lg px-2 py-1 text-right font-mono">
-              <span className="text-[11px] font-black text-emerald-400">
+              <span className="text-[11px] font-black text-emerald-400 flex items-center justify-end gap-1">
+                <CheckCircle2 className="size-3 text-emerald-400 inline" />
                 {trade.closeReason || 'TP HIT'} · +{(trade.pnlPercent ?? 34.5).toFixed(1)}%
               </span>
             </div>
@@ -188,7 +230,7 @@ export function TradeChartSnapshot({
           }}
         >
           {/* Top Control Bar */}
-          <div className="flex items-center justify-between px-4 py-3 bg-[#080c14]/90 border-b border-white/10 text-xs font-mono shrink-0 shadow-lg">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-[#080c14]/90 border-b border-white/10 text-xs font-mono shrink-0 shadow-lg">
             {/* Left Info */}
             <div className="flex items-center gap-3">
               <Badge
@@ -203,14 +245,47 @@ export function TradeChartSnapshot({
               </Badge>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-base tracking-tight text-white">{trade.symbol}</span>
-                <span className="text-xs text-muted-foreground">Setup Chart Proof (1:{rr} R:R)</span>
+                <span className="text-xs text-muted-foreground">
+                  {isViewingProof ? '🏆 Profit / Exit Proof Verification' : `Setup Chart Proof (1:${rr} R:R)`}
+                </span>
               </div>
               <div className="hidden md:flex items-center gap-2 pl-3 border-l border-white/10 text-[11px]">
                 <span className="text-cyan-400">Entry: <strong>{trade.entryPrice}</strong></span>
                 <span className="text-emerald-400">TP1: <strong>{trade.target1}</strong></span>
                 <span className="text-rose-400">SL: <strong>{trade.stopLoss}</strong></span>
+                {trade.closePrice && (
+                  <span className="text-amber-400 border-l border-white/10 pl-2">Exit: <strong>{trade.closePrice}</strong></span>
+                )}
               </div>
             </div>
+
+            {/* Middle Switcher if Proof Exists */}
+            {hasCloseImage && (
+              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg border border-white/15">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('ENTRY')}
+                  className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                    activeTab === 'ENTRY'
+                      ? 'bg-cyan-500 text-slate-950 shadow-md'
+                      : 'text-white/70 hover:text-white'
+                  }`}
+                >
+                  📸 Entry Setup
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('PROOF')}
+                  className={`px-3 py-1 rounded text-xs font-bold transition-all flex items-center gap-1 ${
+                    activeTab === 'PROOF'
+                      ? 'bg-emerald-500 text-slate-950 shadow-md'
+                      : 'text-emerald-400 hover:text-emerald-300'
+                  }`}
+                >
+                  🏆 Profit Proof
+                </button>
+              </div>
+            )}
 
             {/* Right Controls */}
             <div className="flex items-center gap-2">
@@ -249,11 +324,11 @@ export function TradeChartSnapshot({
               </div>
 
               {/* Open in new tab if external link */}
-              {hasCustomImage && (
+              {hasCurrentImage && currentImageUrl && (
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => window.open(trade.chartImageUrl, '_blank', 'noopener,noreferrer')}
+                  onClick={() => window.open(currentImageUrl, '_blank', 'noopener,noreferrer')}
                   className="h-8 gap-1 text-xs border-white/15 bg-white/5 hover:bg-white/10 text-white font-mono"
                   title="Open Original Image Link"
                 >
@@ -282,14 +357,14 @@ export function TradeChartSnapshot({
               if (e.target === e.currentTarget) setFullscreenOpen(false)
             }}
           >
-            {hasCustomImage ? (
+            {hasCurrentImage && currentImageUrl ? (
               <div
                 className="transition-transform duration-150 ease-out flex items-center justify-center max-w-full max-h-full"
                 style={{ transform: `scale(${zoomScale})` }}
               >
                 <img
-                  src={trade.chartImageUrl}
-                  alt={`${trade.symbol} Fullscreen Chart Setup`}
+                  src={currentImageUrl}
+                  alt={`${trade.symbol} Fullscreen ${isViewingProof ? 'Profit Proof' : 'Chart Setup'}`}
                   className="max-w-[96vw] max-h-[86vh] w-auto h-auto object-contain rounded-lg shadow-2xl border border-white/15 bg-black"
                 />
               </div>
