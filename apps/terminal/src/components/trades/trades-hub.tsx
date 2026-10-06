@@ -589,6 +589,13 @@ export function TradesHub() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {displayedTrades.map((trade) => {
                 const isBuy = trade.type === 'BUY'
+                const isCardLoss =
+                  trade.status === 'CLOSED' &&
+                  ((trade.pnlPercent ?? 0) < 0 ||
+                    trade.closeReason === 'SL' ||
+                    trade.closeReason === 'CANCELLED' ||
+                    Boolean(trade.closeReason?.toUpperCase().includes('SL')))
+
                 const rr = (
                   Math.abs(trade.target1 - trade.entryPrice) /
                   Math.max(0.00001, Math.abs(trade.entryPrice - trade.stopLoss))
@@ -634,7 +641,7 @@ export function TradesHub() {
                         </div>
                       </div>
 
-                      {/* TradingView Chart Snapshot / Visual Setup / Profit Proof */}
+                      {/* TradingView Chart Snapshot / Visual Setup / Profit Proof / SL Proof */}
                       {(trade.closeImageUrl || trade.chartImageUrl) && (
                         <div
                           onClick={() => setSelectedTradeInspection(trade)}
@@ -650,19 +657,21 @@ export function TradesHub() {
                               if (target.src.includes('_big.png')) {
                                 target.src = target.src.replace('_big.png', '_mid.png')
                               } else if (!target.src.includes('/snapshots/')) {
-                                const match = target.src.match(/s3\.tradingview\.com\/[a-z0-9]+\/([A-Za-z0-9]+)/i)
-                                if (match) {
-                                  const id = match[1].replace(/_(big|mid)\.png$/i, '')
-                                  target.src = `https://s3.tradingview.com/snapshots/${id.charAt(0).toLowerCase()}/${id}.png`
-                                }
+                                target.src = target.src
                               }
                             }}
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-between p-2">
                             {trade.status === 'CLOSED' && trade.closeImageUrl ? (
-                              <span className="text-[10.5px] font-mono font-bold text-emerald-400 bg-black/80 px-2 py-0.5 rounded border border-emerald-500/40 flex items-center gap-1.5 shadow-sm">
-                                🏆 Profit Proof Attached
-                              </span>
+                              isCardLoss ? (
+                                <span className="text-[10.5px] font-mono font-bold text-rose-400 bg-black/80 px-2 py-0.5 rounded border border-rose-500/40 flex items-center gap-1.5 shadow-sm">
+                                  🛡️ SL Proof Attached
+                                </span>
+                              ) : (
+                                <span className="text-[10.5px] font-mono font-bold text-emerald-400 bg-black/80 px-2 py-0.5 rounded border border-emerald-500/40 flex items-center gap-1.5 shadow-sm">
+                                  🏆 Profit Proof Attached
+                                </span>
+                              )
                             ) : (
                               <span className="text-[10.5px] font-mono font-bold text-cyan-400 bg-black/70 px-2 py-0.5 rounded border border-cyan-500/30 flex items-center gap-1.5 shadow-sm">
                                 <Eye className="size-3.5" /> TradingView Analysis
@@ -792,11 +801,23 @@ export function TradesHub() {
                               onClick={() => setSelectedTradeInspection(trade)}
                               className={`text-[10.5px] font-mono flex items-center gap-1 px-2 py-0.5 rounded border transition-colors ${
                                 trade.closeImageUrl
-                                  ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20'
+                                  ? isCardLoss
+                                    ? 'text-rose-400 bg-rose-500/10 border-rose-500/30 hover:bg-rose-500/20'
+                                    : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20'
                                   : 'text-muted-foreground hover:text-cyan-400 bg-muted/30 border-border/40'
                               }`}
                             >
-                              {trade.closeImageUrl ? '🏆 Proof' : <><Eye className="size-3" /> Setup</>}
+                              {trade.closeImageUrl ? (
+                                isCardLoss ? (
+                                  '🛡️ SL Proof'
+                                ) : (
+                                  '🏆 Profit Proof'
+                                )
+                              ) : (
+                                <>
+                                  <Eye className="size-3" /> Setup
+                                </>
+                              )}
                             </button>
                             <span
                               className={`inline-flex items-center gap-1 font-mono text-xs font-bold px-2 py-0.5 rounded ${
@@ -887,16 +908,39 @@ export function TradesHub() {
                     <span className="text-cyan-400 font-bold">{selectedTradeInspection.closePrice}</span>
                   </div>
                 )}
-                {selectedTradeInspection.closeImageUrl && (
-                  <div className="flex items-center justify-between text-emerald-400 bg-emerald-500/10 p-1.5 rounded border border-emerald-500/30">
-                    <span className="flex items-center gap-1 font-bold text-[11px]">
-                      <CheckCircle2 className="size-3.5" /> Profit Proof Verified:
-                    </span>
-                    <span className="text-[10px] underline cursor-pointer" onClick={() => setSelectedTradeInspection(selectedTradeInspection)}>
-                      Snapshot Attached Above ⬆
-                    </span>
-                  </div>
-                )}
+                {selectedTradeInspection.closeImageUrl && (() => {
+                  const modalIsLoss =
+                    selectedTradeInspection.status === 'CLOSED' &&
+                    ((selectedTradeInspection.pnlPercent ?? 0) < 0 ||
+                      selectedTradeInspection.closeReason === 'SL' ||
+                      selectedTradeInspection.closeReason === 'CANCELLED' ||
+                      Boolean(selectedTradeInspection.closeReason?.toUpperCase().includes('SL')))
+
+                  return (
+                    <div
+                      className={`flex items-center justify-between p-1.5 rounded border ${
+                        modalIsLoss
+                          ? 'text-rose-400 bg-rose-500/10 border-rose-500/30'
+                          : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1 font-bold text-[11px]">
+                        {modalIsLoss ? (
+                          <Shield className="size-3.5 text-rose-400" />
+                        ) : (
+                          <CheckCircle2 className="size-3.5 text-emerald-400" />
+                        )}
+                        {modalIsLoss ? 'Stop Loss / Exit Proof Verified:' : 'Profit Proof Verified:'}
+                      </span>
+                      <span
+                        className="text-[10px] underline cursor-pointer"
+                        onClick={() => setSelectedTradeInspection(selectedTradeInspection)}
+                      >
+                        Snapshot Attached Above ⬆
+                      </span>
+                    </div>
+                  )
+                })()}
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Target 1 (TP1):</span>
                   <span className="text-emerald-400 font-bold">{selectedTradeInspection.target1}</span>

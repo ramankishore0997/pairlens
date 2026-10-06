@@ -50,6 +50,13 @@ export function TradeChartSnapshot({
     Math.max(0.00001, Math.abs(trade.entryPrice - trade.stopLoss))
   ).toFixed(2)
 
+  const isLoss =
+    trade.status === 'CLOSED' &&
+    ((trade.pnlPercent ?? 0) < 0 ||
+      trade.closeReason === 'SL' ||
+      trade.closeReason === 'CANCELLED' ||
+      Boolean(trade.closeReason?.toUpperCase().includes('SL')))
+
   const hasEntryImage = Boolean(normalizedEntry && normalizedEntry.length > 5)
   const isViewingProof = activeTab === 'PROOF' && hasCloseImage
   const currentImageUrl = isViewingProof ? normalizedClose : normalizedEntry
@@ -105,7 +112,7 @@ export function TradeChartSnapshot({
           </span>
         </div>
 
-        {/* Tab Switcher if Profit Proof Available */}
+        {/* Tab Switcher if Profit / SL Proof Available */}
         {hasCloseImage && (
           <div className="flex items-center gap-1 bg-background/90 p-0.5 rounded-lg border border-border/60">
             <button
@@ -124,20 +131,30 @@ export function TradeChartSnapshot({
               onClick={() => setActiveTab('PROOF')}
               className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${
                 activeTab === 'PROOF'
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-xs'
-                  : 'text-emerald-400/70 hover:text-emerald-300'
+                  ? isLoss
+                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-xs'
+                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-xs'
+                  : isLoss
+                    ? 'text-rose-400/70 hover:text-rose-300'
+                    : 'text-emerald-400/70 hover:text-emerald-300'
               }`}
             >
-              🏆 Profit Proof
+              {isLoss ? '🛡️ SL Proof' : '🏆 Profit Proof'}
             </button>
           </div>
         )}
 
         <div className="flex items-center gap-2">
           {isViewingProof ? (
-            <Badge variant="outline" className="text-[9.5px] border-emerald-500/40 text-emerald-400 font-mono flex items-center gap-1 bg-emerald-500/10">
-              <CheckCircle2 className="size-2.5" /> Profit / Exit Proof
-            </Badge>
+            isLoss ? (
+              <Badge variant="outline" className="text-[9.5px] border-rose-500/40 text-rose-400 font-mono flex items-center gap-1 bg-rose-500/10">
+                <Shield className="size-2.5" /> Stop Loss / Exit Proof
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[9.5px] border-emerald-500/40 text-emerald-400 font-mono flex items-center gap-1 bg-emerald-500/10">
+                <CheckCircle2 className="size-2.5" /> Profit / Exit Proof
+              </Badge>
+            )
           ) : hasEntryImage ? (
             <Badge variant="outline" className="text-[9.5px] border-cyan-500/40 text-cyan-400 font-mono flex items-center gap-1 bg-cyan-500/5">
               <ImageIcon className="size-2.5" /> Entry Setup
@@ -165,14 +182,14 @@ export function TradeChartSnapshot({
       {/* Chart Canvas / Thumbnail View */}
       <div className="relative w-full overflow-hidden bg-[#0a0e17]" style={{ height: `${height}px` }}>
         {hasCurrentImage ? (
-          /* Image Snapshot (Entry or Profit Proof) */
+          /* Image Snapshot (Entry or Profit/SL Proof) */
           <div
             className="w-full h-full cursor-pointer flex items-center justify-center relative overflow-hidden group/img bg-black/40"
             onClick={() => setFullscreenOpen(true)}
           >
             <img
               src={currentImageUrl}
-              alt={`${trade.symbol} ${isViewingProof ? 'Profit Proof' : 'Trade Setup'} Chart`}
+              alt={`${trade.symbol} ${isViewingProof ? (isLoss ? 'Stop Loss Proof' : 'Profit Proof') : 'Trade Setup'} Chart`}
               className="w-full h-full object-contain object-center transition-transform duration-300 group-hover/img:scale-[1.02]"
               loading="lazy"
               onError={(e) => {
@@ -190,7 +207,7 @@ export function TradeChartSnapshot({
             />
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
               <span className="text-xs font-mono text-white bg-black/85 px-3.5 py-1.5 rounded-full border border-white/20 flex items-center gap-2 shadow-2xl backdrop-blur-md">
-                <Maximize2 className="size-3.5 text-cyan-400" /> Click to Expand {isViewingProof ? 'Profit Proof' : 'Full Screen'}
+                <Maximize2 className="size-3.5 text-cyan-400" /> Click to Expand {isViewingProof ? (isLoss ? 'Stop Loss Proof' : 'Profit Proof') : 'Full Screen'}
               </span>
             </div>
           </div>
@@ -227,10 +244,10 @@ export function TradeChartSnapshot({
           </div>
 
           {trade.status === 'CLOSED' && (
-            <div className="bg-emerald-500/15 backdrop-blur-md border border-emerald-500/40 rounded-lg px-2 py-1 text-right font-mono">
-              <span className="text-[11px] font-black text-emerald-400 flex items-center justify-end gap-1">
-                <CheckCircle2 className="size-3 text-emerald-400 inline" />
-                {trade.closeReason || 'TP HIT'} · +{(trade.pnlPercent ?? 34.5).toFixed(1)}%
+            <div className={`${isLoss ? 'bg-rose-500/15 border-rose-500/40' : 'bg-emerald-500/15 border-emerald-500/40'} backdrop-blur-md border rounded-lg px-2 py-1 text-right font-mono`}>
+              <span className={`text-[11px] font-black ${isLoss ? 'text-rose-400' : 'text-emerald-400'} flex items-center justify-end gap-1`}>
+                {isLoss ? <Shield className="size-3 text-rose-400 inline" /> : <CheckCircle2 className="size-3 text-emerald-400 inline" />}
+                {trade.closeReason || (isLoss ? 'SL HIT' : 'TP HIT')} · {isLoss ? '' : '+'}{(trade.pnlPercent ?? (isLoss ? -15.0 : 34.5)).toFixed(1)}%
               </span>
             </div>
           )}
@@ -262,7 +279,7 @@ export function TradeChartSnapshot({
               <div className="flex items-center gap-2">
                 <span className="font-bold text-base tracking-tight text-white">{trade.symbol}</span>
                 <span className="text-xs text-muted-foreground">
-                  {isViewingProof ? '🏆 Profit / Exit Proof Verification' : `Setup Chart Proof (1:${rr} R:R)`}
+                  {isViewingProof ? (isLoss ? '🛡️ Stop Loss / Exit Proof Verification' : '🏆 Profit / Exit Proof Verification') : `Setup Chart Proof (1:${rr} R:R)`}
                 </span>
               </div>
               <div className="hidden md:flex items-center gap-2 pl-3 border-l border-white/10 text-[11px]">
@@ -294,11 +311,15 @@ export function TradeChartSnapshot({
                   onClick={() => setActiveTab('PROOF')}
                   className={`px-3 py-1 rounded text-xs font-bold transition-all flex items-center gap-1 ${
                     activeTab === 'PROOF'
-                      ? 'bg-emerald-500 text-slate-950 shadow-md'
-                      : 'text-emerald-400 hover:text-emerald-300'
+                      ? isLoss
+                        ? 'bg-rose-500 text-white shadow-md'
+                        : 'bg-emerald-500 text-slate-950 shadow-md'
+                      : isLoss
+                        ? 'text-rose-400 hover:text-rose-300'
+                        : 'text-emerald-400 hover:text-emerald-300'
                   }`}
                 >
-                  🏆 Profit Proof
+                  {isLoss ? '🛡️ SL Proof' : '🏆 Profit Proof'}
                 </button>
               </div>
             )}
