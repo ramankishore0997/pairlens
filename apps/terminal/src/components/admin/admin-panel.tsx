@@ -973,12 +973,31 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                         </span>
                       </td>
                       <td className="p-3">{t.entry_price}</td>
-                      <td className="p-3 font-semibold text-emerald-400">
-                        {t.outcome?.toUpperCase()} ({t.current_price ?? t.tp1_price})
+                      <td className="p-3">
+                        <span
+                          className={`font-semibold ${
+                            ['tp1', 'tp2', 'tp3', 'won'].includes(t.outcome || '')
+                              ? 'text-emerald-400'
+                              : t.outcome === 'sl' || (t.pnl_percent ?? 0) < 0
+                              ? 'text-rose-400'
+                              : 'text-cyan-400'
+                          }`}
+                        >
+                          {t.outcome?.toUpperCase()} ({t.current_price ?? t.tp1_price})
+                        </span>
                       </td>
                       <td className="p-3">
-                        <span className={(t.pnl_percent ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                          {(t.pnl_percent ?? 0) >= 0 ? `+${t.pnl_percent}%` : `${t.pnl_percent}%`} ({t.pips ?? 0} pips)
+                        <span
+                          className={
+                            ['tp1', 'tp2', 'tp3', 'won'].includes(t.outcome || '') || (t.pnl_percent ?? 0) >= 0
+                              ? 'text-emerald-400 font-bold'
+                              : 'text-rose-400 font-bold'
+                          }
+                        >
+                          {['tp1', 'tp2', 'tp3', 'won'].includes(t.outcome || '') && (t.pnl_percent ?? 0) > 0
+                            ? `+${t.pnl_percent}%`
+                            : `${t.pnl_percent ?? 0}%`}{' '}
+                          ({t.pips ?? 0} pips)
                         </span>
                       </td>
                       <td className="p-3 text-muted-foreground">
@@ -2331,7 +2350,38 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                 <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Outcome / Trigger</label>
                 <select
                   value={editTradeForm.outcome}
-                  onChange={(e) => setEditTradeForm({ ...editTradeForm, outcome: e.target.value as any })}
+                  onChange={(e) => {
+                    const outcome = e.target.value as DbTrade['outcome']
+                    let nextCurrentPrice = editTradeForm.current_price
+                    if (outcome === 'tp1' && editTradeForm.tp1_price) nextCurrentPrice = editTradeForm.tp1_price
+                    else if (outcome === 'tp2' && editTradeForm.tp2_price) nextCurrentPrice = editTradeForm.tp2_price
+                    else if (outcome === 'tp3' && editTradeForm.tp3_price) nextCurrentPrice = editTradeForm.tp3_price
+                    else if (outcome === 'sl' && editTradeForm.sl_price) nextCurrentPrice = editTradeForm.sl_price
+                    else if (outcome === 'manual' && editTradeForm.entry_price) nextCurrentPrice = editTradeForm.entry_price
+
+                    const isBuy = editTradeForm.type === 'BUY'
+                    const entry = parseFloat(editTradeForm.entry_price)
+                    const exit = parseFloat(nextCurrentPrice)
+                    let pnlStr = editTradeForm.pnl_percent
+                    let pipsStr = editTradeForm.pips
+
+                    if (entry && exit && !isNaN(entry) && !isNaN(exit)) {
+                      const diff = isBuy ? exit - entry : entry - exit
+                      const pnlVal = Number(((diff / entry) * 100).toFixed(2))
+                      const pipsVal = Math.round(Math.abs(diff) * (editTradeForm.symbol.includes('JPY') ? 100 : 10000)) * (diff >= 0 ? 1 : -1)
+                      pnlStr = String(pnlVal)
+                      pipsStr = String(pipsVal)
+                    }
+
+                    setEditTradeForm({
+                      ...editTradeForm,
+                      outcome,
+                      status: outcome === 'open' ? 'active' : 'closed',
+                      current_price: nextCurrentPrice,
+                      pnl_percent: pnlStr,
+                      pips: pipsStr,
+                    })
+                  }}
                   className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs"
                 >
                   <option value="open">Open (Active)</option>
@@ -2339,9 +2389,166 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                   <option value="tp2">Target 2 Hit (TP2)</option>
                   <option value="tp3">Target 3 Hit (TP3)</option>
                   <option value="sl">Stop Loss Hit (SL)</option>
-                  <option value="manual">Manual Exit</option>
+                  <option value="manual">Manual Exit / Breakeven</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
+              </div>
+            </div>
+
+            {/* Quick Outcome Preset Selector */}
+            <div className="p-2 rounded-lg bg-muted/30 border border-border/40 space-y-1.5">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                Quick Trigger & Auto-Level Fill:
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextPrice = editTradeForm.tp1_price || editTradeForm.current_price
+                    const isBuy = editTradeForm.type === 'BUY'
+                    const entry = parseFloat(editTradeForm.entry_price)
+                    const exit = parseFloat(nextPrice)
+                    let pnlVal = 0, pipsVal = 0
+                    if (entry && exit) {
+                      const diff = isBuy ? exit - entry : entry - exit
+                      pnlVal = Number(((diff / entry) * 100).toFixed(2))
+                      pipsVal = Math.round(Math.abs(diff) * (editTradeForm.symbol.includes('JPY') ? 100 : 10000)) * (diff >= 0 ? 1 : -1)
+                    }
+                    setEditTradeForm({
+                      ...editTradeForm,
+                      outcome: 'tp1',
+                      status: 'closed',
+                      current_price: nextPrice,
+                      pnl_percent: String(pnlVal),
+                      pips: String(pipsVal),
+                    })
+                  }}
+                  className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
+                    editTradeForm.outcome === 'tp1'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30'
+                  }`}
+                >
+                  🟢 TP1 Hit ({editTradeForm.tp1_price || 'TP1'})
+                </button>
+
+                {editTradeForm.tp2_price && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextPrice = editTradeForm.tp2_price || editTradeForm.current_price
+                      const isBuy = editTradeForm.type === 'BUY'
+                      const entry = parseFloat(editTradeForm.entry_price)
+                      const exit = parseFloat(nextPrice)
+                      let pnlVal = 0, pipsVal = 0
+                      if (entry && exit) {
+                        const diff = isBuy ? exit - entry : entry - exit
+                        pnlVal = Number(((diff / entry) * 100).toFixed(2))
+                        pipsVal = Math.round(Math.abs(diff) * (editTradeForm.symbol.includes('JPY') ? 100 : 10000)) * (diff >= 0 ? 1 : -1)
+                      }
+                      setEditTradeForm({
+                        ...editTradeForm,
+                        outcome: 'tp2',
+                        status: 'closed',
+                        current_price: nextPrice,
+                        pnl_percent: String(pnlVal),
+                        pips: String(pipsVal),
+                      })
+                    }}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
+                      editTradeForm.outcome === 'tp2'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30'
+                    }`}
+                  >
+                    🟢 TP2 Hit ({editTradeForm.tp2_price})
+                  </button>
+                )}
+
+                {editTradeForm.tp3_price && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextPrice = editTradeForm.tp3_price || editTradeForm.current_price
+                      const isBuy = editTradeForm.type === 'BUY'
+                      const entry = parseFloat(editTradeForm.entry_price)
+                      const exit = parseFloat(nextPrice)
+                      let pnlVal = 0, pipsVal = 0
+                      if (entry && exit) {
+                        const diff = isBuy ? exit - entry : entry - exit
+                        pnlVal = Number(((diff / entry) * 100).toFixed(2))
+                        pipsVal = Math.round(Math.abs(diff) * (editTradeForm.symbol.includes('JPY') ? 100 : 10000)) * (diff >= 0 ? 1 : -1)
+                      }
+                      setEditTradeForm({
+                        ...editTradeForm,
+                        outcome: 'tp3',
+                        status: 'closed',
+                        current_price: nextPrice,
+                        pnl_percent: String(pnlVal),
+                        pips: String(pipsVal),
+                      })
+                    }}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
+                      editTradeForm.outcome === 'tp3'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30'
+                    }`}
+                  >
+                    🟢 TP3 Hit ({editTradeForm.tp3_price})
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextPrice = editTradeForm.sl_price || editTradeForm.current_price
+                    const isBuy = editTradeForm.type === 'BUY'
+                    const entry = parseFloat(editTradeForm.entry_price)
+                    const exit = parseFloat(nextPrice)
+                    let pnlVal = 0, pipsVal = 0
+                    if (entry && exit) {
+                      const diff = isBuy ? exit - entry : entry - exit
+                      pnlVal = Number(((diff / entry) * 100).toFixed(2))
+                      pipsVal = Math.round(Math.abs(diff) * (editTradeForm.symbol.includes('JPY') ? 100 : 10000)) * (diff >= 0 ? 1 : -1)
+                    }
+                    setEditTradeForm({
+                      ...editTradeForm,
+                      outcome: 'sl',
+                      status: 'closed',
+                      current_price: nextPrice,
+                      pnl_percent: String(pnlVal),
+                      pips: String(pipsVal),
+                    })
+                  }}
+                  className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
+                    editTradeForm.outcome === 'sl'
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30'
+                  }`}
+                >
+                  🔴 SL Hit ({editTradeForm.sl_price || 'SL'})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditTradeForm({
+                      ...editTradeForm,
+                      outcome: 'manual',
+                      status: 'closed',
+                      current_price: editTradeForm.entry_price,
+                      pnl_percent: '0.0',
+                      pips: '0',
+                    })
+                  }}
+                  className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${
+                    editTradeForm.outcome === 'manual' && editTradeForm.pnl_percent === '0.0'
+                      ? 'bg-slate-700 text-white'
+                      : 'bg-muted/40 text-muted-foreground hover:bg-muted/60 border border-border/50'
+                  }`}
+                >
+                  ⚪ Breakeven (0.0%)
+                </button>
               </div>
             </div>
 
@@ -2415,22 +2622,68 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                   step="any"
                   placeholder="e.g. Close Price"
                   value={editTradeForm.current_price}
-                  onChange={(e) => setEditTradeForm({ ...editTradeForm, current_price: e.target.value })}
+                  onChange={(e) => {
+                    const nextPrice = e.target.value
+                    const isBuy = editTradeForm.type === 'BUY'
+                    const entry = parseFloat(editTradeForm.entry_price)
+                    const exit = parseFloat(nextPrice)
+                    let pnlStr = editTradeForm.pnl_percent
+                    let pipsStr = editTradeForm.pips
+
+                    if (entry && exit && !isNaN(entry) && !isNaN(exit)) {
+                      const diff = isBuy ? exit - entry : entry - exit
+                      const pnlVal = Number(((diff / entry) * 100).toFixed(2))
+                      const pipsVal = Math.round(Math.abs(diff) * (editTradeForm.symbol.includes('JPY') ? 100 : 10000)) * (diff >= 0 ? 1 : -1)
+                      pnlStr = String(pnlVal)
+                      pipsStr = String(pipsVal)
+                    }
+
+                    setEditTradeForm({
+                      ...editTradeForm,
+                      current_price: nextPrice,
+                      pnl_percent: pnlStr,
+                      pips: pipsStr,
+                    })
+                  }}
                 />
               </div>
             </div>
 
-            {/* PnL % and Pips */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* PnL % and Pips with Auto-Calculate button */}
+            <div className="grid grid-cols-2 gap-3 p-2.5 rounded-xl bg-muted/20 border border-border/40">
               <div>
-                <label className="text-[11px] font-medium text-muted-foreground mb-1 block">P&L Percent (%)</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-medium text-muted-foreground">P&L Percent (%)</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const isBuy = editTradeForm.type === 'BUY'
+                      const entry = parseFloat(editTradeForm.entry_price)
+                      const exit = parseFloat(editTradeForm.current_price || editTradeForm.tp1_price)
+                      if (entry && exit && !isNaN(entry) && !isNaN(exit)) {
+                        const diff = isBuy ? exit - entry : entry - exit
+                        const pnlVal = Number(((diff / entry) * 100).toFixed(2))
+                        const pipsVal = Math.round(Math.abs(diff) * (editTradeForm.symbol.includes('JPY') ? 100 : 10000)) * (diff >= 0 ? 1 : -1)
+                        setEditTradeForm({ ...editTradeForm, pnl_percent: String(pnlVal), pips: String(pipsVal) })
+                        toast.success(`PnL calculated: ${pnlVal >= 0 ? '+' : ''}${pnlVal}% (${pipsVal >= 0 ? '+' : ''}${pipsVal} pips)`)
+                      } else {
+                        toast.error('Please enter valid Entry Price and Exit Price')
+                      }
+                    }}
+                    className="text-[10px] text-cyan-400 hover:underline flex items-center gap-0.5"
+                  >
+                    ⚡ Auto-Calc
+                  </button>
+                </div>
                 <Input
                   type="number"
                   step="any"
                   placeholder="e.g. 34.5 or -12.0"
                   value={editTradeForm.pnl_percent}
                   onChange={(e) => setEditTradeForm({ ...editTradeForm, pnl_percent: e.target.value })}
-                  className="text-emerald-400 font-bold"
+                  className={`font-bold ${
+                    parseFloat(editTradeForm.pnl_percent || '0') >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  }`}
                 />
               </div>
 
@@ -2441,6 +2694,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                   placeholder="e.g. 84 or -35"
                   value={editTradeForm.pips}
                   onChange={(e) => setEditTradeForm({ ...editTradeForm, pips: e.target.value })}
+                  className="font-mono"
                 />
               </div>
             </div>
@@ -2485,7 +2739,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                   <div className="mt-2 rounded-lg border border-border/60 overflow-hidden bg-black/60 p-2 flex items-center justify-between gap-2">
                     <div className="h-14 w-24 rounded overflow-hidden bg-black flex items-center justify-center shrink-0 border border-white/10">
                       <img
-                        src={editTradeForm.chart_image_url}
+                        src={normalizeTradingViewChartUrl(editTradeForm.chart_image_url)}
                         alt="Entry Setup Preview"
                         className="h-full w-full object-contain"
                         onError={(e) => {
@@ -2506,31 +2760,39 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
 
               {/* Closing Profit / SL Proof Screenshot */}
               {(() => {
-                const isSlEdit =
-                  editTradeForm.outcome === 'sl' ||
-                  (editTradeForm.pnl_percent !== '' && parseFloat(editTradeForm.pnl_percent) < 0)
+                const isTpOutcome = ['tp1', 'tp2', 'tp3'].includes(editTradeForm.outcome || '')
+                const isSlOutcome = editTradeForm.outcome === 'sl'
+                const pnlNum = parseFloat(editTradeForm.pnl_percent || '0')
+                const isSlEdit = isSlOutcome || (!isTpOutcome && editTradeForm.pnl_percent !== '' && pnlNum < 0)
+                const isProfitEdit = isTpOutcome || (!isSlOutcome && pnlNum > 0)
 
                 return (
                   <div
                     className={`p-3 rounded-xl border space-y-2 ${
                       isSlEdit
                         ? 'bg-rose-500/5 border-rose-500/30'
-                        : 'bg-amber-500/5 border-amber-500/30'
+                        : isProfitEdit
+                        ? 'bg-emerald-500/5 border-emerald-500/30'
+                        : 'bg-muted/30 border-border/40'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <label
                         className={`text-[11px] font-bold flex items-center gap-1.5 ${
-                          isSlEdit ? 'text-rose-400' : 'text-amber-400'
+                          isSlEdit ? 'text-rose-400' : isProfitEdit ? 'text-emerald-400' : 'text-cyan-400'
                         }`}
                       >
                         {isSlEdit ? (
                           <>
                             <Shield className="size-3.5" /> 🛡️ 2. Stop Loss / Exit Proof Screenshot (URL)
                           </>
+                        ) : isProfitEdit ? (
+                          <>
+                            <Sparkles className="size-3.5" /> 🏆 2. Target / Profit Proof Screenshot (URL)
+                          </>
                         ) : (
                           <>
-                            <Sparkles className="size-3.5" /> 🏆 2. Profit Proof / Exit Screenshot (URL)
+                            <Camera className="size-3.5" /> ⚖️ 2. Exit Proof Screenshot (URL)
                           </>
                         )}
                       </label>
@@ -2559,12 +2821,16 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                     {editTradeForm.close_image_url && editTradeForm.close_image_url.trim().length > 5 ? (
                       <div
                         className={`mt-2 rounded-lg border overflow-hidden bg-black/60 p-2 flex items-center justify-between gap-2 ${
-                          isSlEdit ? 'border-rose-500/40' : 'border-amber-500/40'
+                          isSlEdit
+                            ? 'border-rose-500/40'
+                            : isProfitEdit
+                            ? 'border-emerald-500/40'
+                            : 'border-border/60'
                         }`}
                       >
                         <div className="h-14 w-24 rounded overflow-hidden bg-black flex items-center justify-center shrink-0 border border-white/10">
                           <img
-                            src={editTradeForm.close_image_url}
+                            src={normalizeTradingViewChartUrl(editTradeForm.close_image_url)}
                             alt={isSlEdit ? 'Stop Loss Proof Preview' : 'Profit Proof Preview'}
                             className="h-full w-full object-contain"
                             onError={(e) => {
@@ -2578,10 +2844,18 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                         <div className="flex-1 min-w-0 text-[10px] text-muted-foreground">
                           <span
                             className={`font-bold block ${
-                              isSlEdit ? 'text-rose-400' : 'text-amber-400'
+                              isSlEdit
+                                ? 'text-rose-400'
+                                : isProfitEdit
+                                ? 'text-emerald-400'
+                                : 'text-cyan-400'
                             }`}
                           >
-                            {isSlEdit ? '✓ Stop Loss Proof' : '✓ Profit Proof'}
+                            {isSlEdit
+                              ? '✓ Stop Loss Proof'
+                              : isProfitEdit
+                              ? `✓ Profit Proof (${(editTradeForm.outcome || 'TP').toUpperCase()})`
+                              : '✓ Exit Proof'}
                           </span>
                           <p className="truncate">{editTradeForm.close_image_url}</p>
                         </div>

@@ -589,12 +589,16 @@ export function TradesHub() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {displayedTrades.map((trade) => {
                 const isBuy = trade.type === 'BUY'
+                const isTpOutcome = ['TP1', 'TP2', 'TP3', 'WON'].includes(trade.closeReason?.toUpperCase() || '')
+                const isSlOutcome =
+                  trade.closeReason?.toUpperCase() === 'SL' ||
+                  trade.closeReason?.toUpperCase().includes('SL') ||
+                  trade.closeReason?.toUpperCase() === 'CANCELLED' ||
+                  trade.closeReason?.toUpperCase() === 'LOST'
+
                 const isCardLoss =
                   trade.status === 'CLOSED' &&
-                  ((trade.pnlPercent ?? 0) < 0 ||
-                    trade.closeReason === 'SL' ||
-                    trade.closeReason === 'CANCELLED' ||
-                    Boolean(trade.closeReason?.toUpperCase().includes('SL')))
+                  (isSlOutcome || (!isTpOutcome && (trade.pnlPercent ?? 0) < 0))
 
                 const rr = (
                   Math.abs(trade.target1 - trade.entryPrice) /
@@ -909,12 +913,16 @@ export function TradesHub() {
                   </div>
                 )}
                 {selectedTradeInspection.closeImageUrl && (() => {
+                  const isModalTp = ['TP1', 'TP2', 'TP3', 'WON'].includes(selectedTradeInspection.closeReason?.toUpperCase() || '')
+                  const isModalSl =
+                    selectedTradeInspection.closeReason === 'SL' ||
+                    selectedTradeInspection.closeReason === 'CANCELLED' ||
+                    selectedTradeInspection.closeReason === 'LOST' ||
+                    Boolean(selectedTradeInspection.closeReason?.toUpperCase().includes('SL'))
+
                   const modalIsLoss =
                     selectedTradeInspection.status === 'CLOSED' &&
-                    ((selectedTradeInspection.pnlPercent ?? 0) < 0 ||
-                      selectedTradeInspection.closeReason === 'SL' ||
-                      selectedTradeInspection.closeReason === 'CANCELLED' ||
-                      Boolean(selectedTradeInspection.closeReason?.toUpperCase().includes('SL')))
+                    (isModalSl || (!isModalTp && (selectedTradeInspection.pnlPercent ?? 0) < 0))
 
                   return (
                     <div
@@ -930,7 +938,9 @@ export function TradesHub() {
                         ) : (
                           <CheckCircle2 className="size-3.5 text-emerald-400" />
                         )}
-                        {modalIsLoss ? 'Stop Loss / Exit Proof Verified:' : 'Profit Proof Verified:'}
+                        {modalIsLoss
+                          ? 'Stop Loss / Exit Proof Verified:'
+                          : `Profit Proof Verified (${(selectedTradeInspection.closeReason || 'TP').toUpperCase()}):`}
                       </span>
                       <span
                         className="text-[10px] underline cursor-pointer"
