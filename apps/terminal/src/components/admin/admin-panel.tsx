@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   ShieldCheck,
+  Shield,
   Lock,
   Plus,
   TrendingUp,
@@ -83,6 +84,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     notes: '',
     chart_image_url: '',
   })
+  const [closeResultType, setCloseResultType] = useState<'PROFIT' | 'LOSS' | 'BREAKEVEN'>('PROFIT')
   const [closeOutcome, setCloseOutcome] = useState<DbTrade['outcome']>('tp1')
   const [customExitPrice, setCustomExitPrice] = useState('')
   const [closeNotes, setCloseNotes] = useState('')
@@ -362,13 +364,28 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
   }
 
   // Open Close Trade Modal with pre-fills
-  const openCloseModal = (trade: DbTrade, defaultOutcome: DbTrade['outcome'] = 'tp1') => {
+  const openCloseModal = (
+    trade: DbTrade,
+    defaultOutcome: DbTrade['outcome'] = 'tp1',
+    defaultResultType?: 'PROFIT' | 'LOSS' | 'BREAKEVEN'
+  ) => {
     setSelectedTrade(trade)
+    const resultType = defaultResultType || (defaultOutcome === 'sl' ? 'LOSS' : 'PROFIT')
+    setCloseResultType(resultType)
     setCloseOutcome(defaultOutcome)
+
     let p = trade.tp1_price ? String(trade.tp1_price) : ''
-    if (defaultOutcome === 'tp2' && trade.tp2_price) p = String(trade.tp2_price)
-    if (defaultOutcome === 'tp3' && trade.tp3_price) p = String(trade.tp3_price)
-    if (defaultOutcome === 'sl') p = String(trade.sl_price)
+    if (resultType === 'BREAKEVEN') {
+      p = String(trade.entry_price)
+      setCloseOutcome('manual')
+    } else if (defaultOutcome === 'tp2' && trade.tp2_price) {
+      p = String(trade.tp2_price)
+    } else if (defaultOutcome === 'tp3' && trade.tp3_price) {
+      p = String(trade.tp3_price)
+    } else if (defaultOutcome === 'sl') {
+      p = String(trade.sl_price)
+    }
+
     setCustomExitPrice(p)
     setCloseNotes('')
     setCloseProofUrl(trade.close_image_url || '')
@@ -378,6 +395,30 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     setCloseTradeOpen(true)
   }
 
+  // Live calculated PnL & Pips based on selected outcome & exit price
+  const liveCalculatedPnl = useMemo(() => {
+    if (!selectedTrade) return null
+    const isBuy = selectedTrade.type === 'BUY'
+    const exitP = customExitPrice
+      ? parseFloat(customExitPrice)
+      : closeOutcome === 'sl'
+      ? selectedTrade.sl_price
+      : closeOutcome === 'tp2' && selectedTrade.tp2_price
+      ? selectedTrade.tp2_price
+      : closeOutcome === 'tp3' && selectedTrade.tp3_price
+      ? selectedTrade.tp3_price
+      : selectedTrade.tp1_price
+
+    if (!exitP || isNaN(exitP)) return null
+    const diff = isBuy ? exitP - selectedTrade.entry_price : selectedTrade.entry_price - exitP
+    const pnlPercent = Number(((diff / selectedTrade.entry_price) * 100).toFixed(2))
+    const pips =
+      Math.round(Math.abs(diff) * (selectedTrade.symbol.includes('JPY') ? 100 : 10000)) *
+      (diff >= 0 ? 1 : -1)
+
+    return { exitP, pnlPercent, pips }
+  }, [selectedTrade, customExitPrice, closeOutcome])
+
   // Handle close trade
   const handleCloseTradeConfirm = async () => {
     if (!selectedTrade) return
@@ -385,20 +426,29 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     const customPnl = closePnlPercent !== '' ? parseFloat(closePnlPercent) : undefined
     const customP = closePips !== '' ? parseInt(closePips, 10) : undefined
 
+    let finalNotes = closeNotes.trim() || undefined
+    if (closeResultType === 'BREAKEVEN' && !finalNotes) {
+      finalNotes = 'Closed at Breakeven / Entry Price (0.0% PnL)'
+    }
+
     await SupabaseDataService.closeTrade(
       selectedTrade.id,
       closeOutcome,
       exitP,
-      closeNotes.trim() || undefined,
+      finalNotes,
       closeProofUrl.trim() || undefined,
       customPnl,
       customP
     )
-    toast.success(
-      closeOutcome === 'sl'
-        ? '✓ Trade closed with Stop Loss Proof (SL)'
-        : `✓ Trade closed with Profit Proof (${closeOutcome.toUpperCase()})`
-    )
+
+    if (closeResultType === 'LOSS' || closeOutcome === 'sl') {
+      toast.success('✓ Trade closed with Stop Loss Proof (SL)')
+    } else if (closeResultType === 'BREAKEVEN') {
+      toast.info('✓ Trade closed at Breakeven (0.0%)')
+    } else {
+      toast.success(`✓ Trade closed with Profit Proof (${closeOutcome.toUpperCase()})`)
+    }
+
     setCloseTradeOpen(false)
     setSelectedTrade(null)
     loadData()
@@ -829,24 +879,27 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                         <div className="flex items-center gap-1">
                           <Button
                             size="sm"
-                            onClick={() => openCloseModal(trade, 'tp1')}
-                            className="h-6 text-[10px] px-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                            onClick={() => openCloseModal(trade, 'tp1', 'PROFIT')}
+                            className="h-6 text-[10px] px-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1 shadow-xs"
+                            title="Close trade in Profit (Select TP1, TP2, TP3 or Custom Profit)"
                           >
-                            Hit TP1 🎯
+                            <TrendingUp className="size-3" /> Profit
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => openCloseModal(trade, 'tp2')}
-                            className="h-6 text-[10px] px-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold"
+                            onClick={() => openCloseModal(trade, 'sl', 'LOSS')}
+                            className="h-6 text-[10px] px-2 bg-rose-600 hover:bg-rose-500 text-white font-bold gap-1 shadow-xs"
+                            title="Close trade in Loss (Stop Loss Hit or Cut Loss)"
                           >
-                            Hit TP2 🎯
+                            <TrendingDown className="size-3" /> Loss
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => openCloseModal(trade, 'sl')}
-                            className="h-6 text-[10px] px-2 bg-rose-600 hover:bg-rose-500 text-white font-bold"
+                            onClick={() => openCloseModal(trade, 'manual', 'BREAKEVEN')}
+                            className="h-6 text-[10px] px-2 bg-muted/60 hover:bg-muted text-foreground border border-border/60 font-bold"
+                            title="Close trade at Breakeven / Entry Price"
                           >
-                            Hit SL ❌
+                            ⚖️ BE
                           </Button>
                         </div>
 
@@ -1678,113 +1731,299 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
               <Badge
                 variant="outline"
                 className={
-                  closeOutcome === 'sl'
+                  closeResultType === 'LOSS'
                     ? 'border-rose-500/40 text-rose-400 text-[10px]'
-                    : 'border-amber-500/40 text-amber-400 text-[10px]'
+                    : closeResultType === 'BREAKEVEN'
+                    ? 'border-cyan-500/40 text-cyan-400 text-[10px]'
+                    : 'border-emerald-500/40 text-emerald-400 text-[10px]'
                 }
               >
-                {closeOutcome === 'sl' ? 'Stop Loss Desk' : 'Closing Desk'}
+                {closeResultType === 'LOSS'
+                  ? 'Stop Loss Desk'
+                  : closeResultType === 'BREAKEVEN'
+                  ? 'Breakeven Desk'
+                  : 'Profit Taking Desk'}
               </Badge>
             </div>
             <DialogTitle className="text-base font-bold mt-2 flex items-center gap-2">
-              {closeOutcome === 'sl' ? (
+              {closeResultType === 'LOSS' ? (
                 <>
-                  <Shield className="size-5 text-rose-400" /> Close Signal & Attach Stop Loss Proof Evidence
+                  <Shield className="size-5 text-rose-400" /> Close Signal in Loss & Attach SL Proof
                 </>
+              ) : closeResultType === 'BREAKEVEN' ? (
+                <>⚖️ Close Signal at Breakeven / Entry Price</>
               ) : (
-                <>🏆 Close Signal & Attach Profit Proof Evidence</>
+                <>
+                  <TrendingUp className="size-5 text-emerald-400" /> Close Signal in Profit & Attach Proof
+                </>
               )}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              {closeOutcome === 'sl'
-                ? 'Select Stop Loss outcome trigger, attach a screenshot proof showing the SL / exit level, and update the track record.'
-                : 'Select outcome trigger, attach a screenshot proof showing the profit/exit, and move to completed track record.'}
+              Admin outcome selector: Choose whether this signal finished in <strong>Profit</strong>, <strong>Loss</strong>, or at <strong>Breakeven</strong>, attach screenshot proof, and update the track record.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Outcome Selection */}
-            <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1.5 block">
-                1. Select Exit Trigger Outcome *
+            {/* 1. SELECT TRADE OUTCOME (PROFIT vs LOSS vs BREAKEVEN) */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-muted-foreground uppercase tracking-wider block">
+                1. Select Trade Outcome Status *
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
+                {/* PROFIT OPTION */}
                 <button
                   type="button"
                   onClick={() => {
+                    setCloseResultType('PROFIT')
                     setCloseOutcome('tp1')
                     if (selectedTrade?.tp1_price) setCustomExitPrice(String(selectedTrade.tp1_price))
+                    setClosePnlPercent('')
+                    setClosePips('')
                   }}
-                  className={`p-2.5 rounded-lg border text-xs font-bold text-left transition-all ${
-                    closeOutcome === 'tp1'
-                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 shadow-sm'
-                      : 'border-border/60 hover:border-border text-muted-foreground'
+                  className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all text-center ${
+                    closeResultType === 'PROFIT'
+                      ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400 ring-2 ring-emerald-500/30 shadow-lg shadow-emerald-500/10'
+                      : 'border-border/60 hover:border-emerald-500/40 bg-card/60 text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  🎯 Target 1 ({selectedTrade?.tp1_price})
+                  <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm">
+                    <TrendingUp className="size-4 text-emerald-400" />
+                    <span>PROFIT (Gain)</span>
+                  </div>
+                  <span className="text-[10px] opacity-80">Target Hit (TP1/2/3)</span>
                 </button>
 
+                {/* LOSS OPTION */}
                 <button
                   type="button"
                   onClick={() => {
-                    setCloseOutcome('tp2')
-                    if (selectedTrade?.tp2_price) setCustomExitPrice(String(selectedTrade.tp2_price))
-                  }}
-                  className={`p-2.5 rounded-lg border text-xs font-bold text-left transition-all ${
-                    closeOutcome === 'tp2'
-                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 shadow-sm'
-                      : 'border-border/60 hover:border-border text-muted-foreground'
-                  }`}
-                >
-                  🎯 Target 2 ({selectedTrade?.tp2_price ?? 'N/A'})
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
+                    setCloseResultType('LOSS')
                     setCloseOutcome('sl')
                     if (selectedTrade?.sl_price) setCustomExitPrice(String(selectedTrade.sl_price))
+                    setClosePnlPercent('')
+                    setClosePips('')
                   }}
-                  className={`p-2.5 rounded-lg border text-xs font-bold text-left transition-all ${
-                    closeOutcome === 'sl'
-                      ? 'border-rose-500 bg-rose-500/15 text-rose-400 shadow-sm'
-                      : 'border-border/60 hover:border-border text-muted-foreground'
+                  className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all text-center ${
+                    closeResultType === 'LOSS'
+                      ? 'border-rose-500 bg-rose-500/20 text-rose-400 ring-2 ring-rose-500/30 shadow-lg shadow-rose-500/10'
+                      : 'border-border/60 hover:border-rose-500/40 bg-card/60 text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  ❌ Stop Loss ({selectedTrade?.sl_price})
+                  <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm">
+                    <TrendingDown className="size-4 text-rose-400" />
+                    <span>LOSS (SL Hit)</span>
+                  </div>
+                  <span className="text-[10px] opacity-80">Stop Loss or Cut Loss</span>
                 </button>
 
+                {/* BREAKEVEN OPTION */}
                 <button
                   type="button"
-                  onClick={() => setCloseOutcome('manual')}
-                  className={`p-2.5 rounded-lg border text-xs font-bold text-left transition-all ${
-                    closeOutcome === 'manual'
-                      ? 'border-cyan-500 bg-cyan-500/15 text-cyan-400 shadow-sm'
-                      : 'border-border/60 hover:border-border text-muted-foreground'
+                  onClick={() => {
+                    setCloseResultType('BREAKEVEN')
+                    setCloseOutcome('manual')
+                    if (selectedTrade?.entry_price) setCustomExitPrice(String(selectedTrade.entry_price))
+                    setClosePnlPercent('0.0')
+                    setClosePips('0')
+                  }}
+                  className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all text-center ${
+                    closeResultType === 'BREAKEVEN'
+                      ? 'border-cyan-500 bg-cyan-500/20 text-cyan-400 ring-2 ring-cyan-500/30 shadow-lg shadow-cyan-500/10'
+                      : 'border-border/60 hover:border-cyan-500/40 bg-card/60 text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  ⚖️ Custom Exit
+                  <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm">
+                    <span>⚖️ BREAKEVEN</span>
+                  </div>
+                  <span className="text-[10px] opacity-80">Exit at Entry (0.0%)</span>
                 </button>
+              </div>
+            </div>
+
+            {/* 1.B SPECIFIC TARGET / LEVEL PICKER */}
+            <div className="space-y-1.5 pt-1">
+              <label className="text-[10.5px] font-bold text-muted-foreground uppercase block">
+                {closeResultType === 'PROFIT' && 'Select Profit Target Level:'}
+                {closeResultType === 'LOSS' && 'Select Loss Trigger / Exit Level:'}
+                {closeResultType === 'BREAKEVEN' && 'Breakeven Exit Level (Entry Price):'}
+              </label>
+
+              {closeResultType === 'PROFIT' && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCloseOutcome('tp1')
+                      if (selectedTrade?.tp1_price) setCustomExitPrice(String(selectedTrade.tp1_price))
+                    }}
+                    className={`p-2 rounded-lg border text-xs font-bold transition-all text-left ${
+                      closeOutcome === 'tp1'
+                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 shadow-sm'
+                        : 'border-border/60 text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    🎯 Target 1 ({selectedTrade?.tp1_price})
+                  </button>
+                  {selectedTrade?.tp2_price && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCloseOutcome('tp2')
+                        if (selectedTrade?.tp2_price) setCustomExitPrice(String(selectedTrade.tp2_price))
+                      }}
+                      className={`p-2 rounded-lg border text-xs font-bold transition-all text-left ${
+                        closeOutcome === 'tp2'
+                          ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 shadow-sm'
+                          : 'border-border/60 text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      🎯 Target 2 ({selectedTrade?.tp2_price})
+                    </button>
+                  )}
+                  {selectedTrade?.tp3_price && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCloseOutcome('tp3')
+                        if (selectedTrade?.tp3_price) setCustomExitPrice(String(selectedTrade.tp3_price))
+                      }}
+                      className={`p-2 rounded-lg border text-xs font-bold transition-all text-left ${
+                        closeOutcome === 'tp3'
+                          ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 shadow-sm'
+                          : 'border-border/60 text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      🎯 Target 3 ({selectedTrade?.tp3_price})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setCloseOutcome('manual')}
+                    className={`p-2 rounded-lg border text-xs font-bold transition-all text-left ${
+                      closeOutcome === 'manual'
+                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 shadow-sm'
+                        : 'border-border/60 text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    📈 Custom Profit Exit
+                  </button>
+                </div>
+              )}
+
+              {closeResultType === 'LOSS' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCloseOutcome('sl')
+                      if (selectedTrade?.sl_price) setCustomExitPrice(String(selectedTrade.sl_price))
+                    }}
+                    className={`p-2 rounded-lg border text-xs font-bold transition-all text-left ${
+                      closeOutcome === 'sl'
+                        ? 'border-rose-500 bg-rose-500/15 text-rose-400 shadow-sm'
+                        : 'border-border/60 text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    ❌ Stop Loss Level ({selectedTrade?.sl_price})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCloseOutcome('manual')}
+                    className={`p-2 rounded-lg border text-xs font-bold transition-all text-left ${
+                      closeOutcome === 'manual'
+                        ? 'border-rose-500 bg-rose-500/15 text-rose-400 shadow-sm'
+                        : 'border-border/60 text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    📉 Early Cut / Custom Loss
+                  </button>
+                </div>
+              )}
+
+              {closeResultType === 'BREAKEVEN' && (
+                <div className="p-2.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-xs flex items-center justify-between">
+                  <span>Exit Price set to Entry Price ({selectedTrade?.entry_price})</span>
+                  <span className="font-bold">0.00% PnL (0 Pips)</span>
+                </div>
+              )}
+            </div>
+
+            {/* LIVE OUTCOME CALCULATION PREVIEW */}
+            <div
+              className={`p-2.5 rounded-xl border flex items-center justify-between font-mono text-xs ${
+                closeResultType === 'LOSS' || (liveCalculatedPnl && liveCalculatedPnl.pnlPercent < 0)
+                  ? 'border-rose-500/40 bg-rose-500/10 text-rose-400'
+                  : closeResultType === 'BREAKEVEN'
+                  ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-400'
+                  : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-bold uppercase text-[10.5px]">Selected Outcome:</span>
+                <Badge
+                  variant="outline"
+                  className={`font-black text-xs ${
+                    closeResultType === 'LOSS'
+                      ? 'border-rose-500 text-rose-400 bg-rose-500/20'
+                      : closeResultType === 'BREAKEVEN'
+                      ? 'border-cyan-500 text-cyan-400 bg-cyan-500/20'
+                      : 'border-emerald-500 text-emerald-400 bg-emerald-500/20'
+                  }`}
+                >
+                  {closeResultType === 'LOSS'
+                    ? '🔴 LOSS (SL HIT)'
+                    : closeResultType === 'BREAKEVEN'
+                    ? '⚪ BREAKEVEN (0%)'
+                    : `🟢 PROFIT (${closeOutcome.toUpperCase()})`}
+                </Badge>
+              </div>
+              <div className="text-right">
+                <span className="font-bold text-sm">
+                  {closePnlPercent !== '' ? (
+                    parseFloat(closePnlPercent) >= 0 ? `+${closePnlPercent}%` : `${closePnlPercent}%`
+                  ) : liveCalculatedPnl ? (
+                    liveCalculatedPnl.pnlPercent >= 0 ? `+${liveCalculatedPnl.pnlPercent}%` : `${liveCalculatedPnl.pnlPercent}%`
+                  ) : (
+                    '0.00%'
+                  )}
+                </span>
+                <span className="text-[10px] opacity-80 block">
+                  {closePips !== ''
+                    ? `${closePips} pips`
+                    : liveCalculatedPnl
+                    ? `${liveCalculatedPnl.pips} pips`
+                    : ''}
+                </span>
               </div>
             </div>
 
             {/* 📸 Attach Profit / Stop Loss Proof Screenshot */}
             <div
               className={`p-3.5 rounded-xl border space-y-2.5 ${
-                closeOutcome === 'sl'
+                closeResultType === 'LOSS'
                   ? 'bg-rose-500/10 border-rose-500/30'
+                  : closeResultType === 'BREAKEVEN'
+                  ? 'bg-cyan-500/10 border-cyan-500/30'
                   : 'bg-amber-500/10 border-amber-500/30'
               }`}
             >
               <div className="flex items-center justify-between">
                 <label
                   className={`text-xs font-bold flex items-center gap-1.5 ${
-                    closeOutcome === 'sl' ? 'text-rose-400' : 'text-amber-400'
+                    closeResultType === 'LOSS'
+                      ? 'text-rose-400'
+                      : closeResultType === 'BREAKEVEN'
+                      ? 'text-cyan-400'
+                      : 'text-amber-400'
                   }`}
                 >
-                  {closeOutcome === 'sl' ? (
+                  {closeResultType === 'LOSS' ? (
                     <>
                       <Shield className="size-3.5" /> 📸 2. Attach Stop Loss / Exit Proof Screenshot (TradingView / Image Link)
+                    </>
+                  ) : closeResultType === 'BREAKEVEN' ? (
+                    <>
+                      <Sparkles className="size-3.5" /> 📸 2. Attach Exit Screenshot Proof (Optional)
                     </>
                   ) : (
                     <>
@@ -1819,7 +2058,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
               {/* Direct Image URL input */}
               <div>
                 <span className="text-[10px] text-muted-foreground block mb-1">
-                  {closeOutcome === 'sl'
+                  {closeResultType === 'LOSS'
                     ? 'Or Paste Direct Stop Loss Screenshot Link (Imgur, PostImage, MT5 / Broker screenshot):'
                     : 'Or Paste Direct Profit Screenshot Link (Imgur, PostImage, MT5 / Broker screenshot):'}
                 </span>
@@ -1835,13 +2074,13 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
               {closeProofUrl && closeProofUrl.trim().length > 5 && (
                 <div
                   className={`rounded-lg border bg-black/60 p-2.5 flex items-center justify-between gap-3 mt-1 ${
-                    closeOutcome === 'sl' ? 'border-rose-500/40' : 'border-amber-500/40'
+                    closeResultType === 'LOSS' ? 'border-rose-500/40' : 'border-amber-500/40'
                   }`}
                 >
                   <div className="h-16 w-28 rounded overflow-hidden bg-black flex items-center justify-center shrink-0 border border-white/10">
                     <img
                       src={closeProofUrl}
-                      alt={closeOutcome === 'sl' ? 'Stop Loss proof preview' : 'Profit proof preview'}
+                      alt={closeResultType === 'LOSS' ? 'Stop Loss proof preview' : 'Profit proof preview'}
                       className="h-full w-full object-contain"
                       onError={(e) => {
                         const target = e.currentTarget
@@ -1854,10 +2093,10 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                   <div className="flex-1 min-w-0 text-[11px] space-y-0.5">
                     <span
                       className={`font-bold block flex items-center gap-1 ${
-                        closeOutcome === 'sl' ? 'text-rose-400' : 'text-emerald-400'
+                        closeResultType === 'LOSS' ? 'text-rose-400' : 'text-emerald-400'
                       }`}
                     >
-                      {closeOutcome === 'sl' ? (
+                      {closeResultType === 'LOSS' ? (
                         <>
                           <Shield className="size-3" /> Stop Loss Proof Image Attached
                         </>
@@ -1875,7 +2114,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                     variant="outline"
                     onClick={() => window.open(closeProofUrl, '_blank')}
                     className={`h-7 text-[10px] gap-1 px-2 shrink-0 ${
-                      closeOutcome === 'sl'
+                      closeResultType === 'LOSS'
                         ? 'border-rose-500/40 text-rose-400'
                         : 'border-amber-500/40 text-amber-400'
                     }`}
@@ -1908,7 +2147,7 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
                   placeholder="Auto-calculated if blank"
                   value={closePnlPercent}
                   onChange={(e) => setClosePnlPercent(e.target.value)}
-                  className={`h-8 font-bold ${closeOutcome === 'sl' ? 'text-rose-400' : 'text-emerald-400'}`}
+                  className={`h-8 font-bold ${closeResultType === 'LOSS' ? 'text-rose-400' : 'text-emerald-400'}`}
                 />
               </div>
 
@@ -1931,9 +2170,11 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
               </label>
               <Input
                 placeholder={
-                  closeOutcome === 'sl'
+                  closeResultType === 'LOSS'
                     ? 'e.g. Stop loss hit due to high volatility / news spike. Controlled risk management preserved capital.'
-                    : 'e.g. Target 1 reached with +85 pips profit. Secured 50% lot and moved SL to Entry.'
+                    : closeResultType === 'BREAKEVEN'
+                    ? 'e.g. Position closed at entry price / breakeven with 0 risk.'
+                    : 'e.g. Target reached with strong momentum. Profit secured.'
                 }
                 value={closeNotes}
                 onChange={(e) => setCloseNotes(e.target.value)}
@@ -1949,18 +2190,24 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
             <Button
               onClick={handleCloseTradeConfirm}
               className={`font-bold h-9 px-4 gap-1.5 shadow-md text-white ${
-                closeOutcome === 'sl'
+                closeResultType === 'LOSS'
                   ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/20'
+                  : closeResultType === 'BREAKEVEN'
+                  ? 'bg-cyan-600 hover:bg-cyan-500 shadow-cyan-600/20'
                   : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
               }`}
             >
-              {closeOutcome === 'sl' ? (
+              {closeResultType === 'LOSS' ? (
                 <>
-                  <Shield className="size-4" /> Confirm Close & Publish SL Proof
+                  <Shield className="size-4" /> Confirm & Close in Loss (SL)
+                </>
+              ) : closeResultType === 'BREAKEVEN' ? (
+                <>
+                  <Check className="size-4" /> Confirm & Close at Breakeven
                 </>
               ) : (
                 <>
-                  <Check className="size-4" /> Confirm & Publish Profit Proof
+                  <Check className="size-4" /> Confirm & Close in Profit (TP)
                 </>
               )}
             </Button>
