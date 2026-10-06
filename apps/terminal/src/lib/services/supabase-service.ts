@@ -42,6 +42,35 @@ export type DbTrade = {
   updated_at?: string
 }
 
+export function normalizeTradingViewChartUrl(url?: string | null): string {
+  if (!url) return ''
+  const trimmed = url.trim()
+  if (!trimmed) return ''
+
+  // 1. TradingView Snapshot URL (e.g. https://www.tradingview.com/x/tXu53xAF/ or /x/tXu53xAF)
+  const snapshotMatch = trimmed.match(/(?:tradingview\.com\/x\/|^x\/)([A-Za-z0-9]+)/i)
+  if (snapshotMatch) {
+    const id = snapshotMatch[1]
+    const firstChar = id.charAt(0).toLowerCase()
+    return `https://s3.tradingview.com/snapshots/${firstChar}/${id}.png`
+  }
+
+  // 2. Already an S3 snapshot URL
+  if (trimmed.includes('s3.tradingview.com/snapshots/')) {
+    return trimmed
+  }
+
+  // 3. TradingView Chart / Idea Publication URL (e.g. https://www.tradingview.com/chart/AUDUSD/7WSJ7lSF-Bears-maintain-control/ or /chart/7WSJ7lSF/)
+  const chartIdeaMatch = trimmed.match(/tradingview\.com\/chart\/(?:[A-Za-z0-9_]+\/)?([A-Za-z0-9]+)(?:-[^\s/?#]+)?/i)
+  if (chartIdeaMatch) {
+    const id = chartIdeaMatch[1]
+    const firstChar = id.charAt(0).toLowerCase()
+    return `https://s3.tradingview.com/${firstChar}/${id}_big.png`
+  }
+
+  return trimmed
+}
+
 export type DbSubscription = {
   id: string
   email: string
@@ -321,15 +350,25 @@ export const SupabaseDataService = {
         .order('created_at', { ascending: false })
 
       if (!error && data) {
-        safeStorage.setItem(TRADES_CACHE_KEY, JSON.stringify(data))
-        return data as Array<DbTrade>
+        const normalized = data.map((t) => ({
+          ...t,
+          chart_image_url: normalizeTradingViewChartUrl(t.chart_image_url),
+          close_image_url: normalizeTradingViewChartUrl(t.close_image_url),
+        }))
+        safeStorage.setItem(TRADES_CACHE_KEY, JSON.stringify(normalized))
+        return normalized as Array<DbTrade>
       }
     } catch {}
 
     const cached = safeStorage.getItem(TRADES_CACHE_KEY)
     if (cached) {
       try {
-        return JSON.parse(cached)
+        const parsed = JSON.parse(cached)
+        return parsed.map((t: any) => ({
+          ...t,
+          chart_image_url: normalizeTradingViewChartUrl(t.chart_image_url),
+          close_image_url: normalizeTradingViewChartUrl(t.close_image_url),
+        }))
       } catch {}
     }
     return []
@@ -338,6 +377,8 @@ export const SupabaseDataService = {
   async createTrade(trade: Omit<DbTrade, 'id' | 'created_at' | 'updated_at'>): Promise<DbTrade> {
     const newTrade: DbTrade = {
       ...trade,
+      chart_image_url: normalizeTradingViewChartUrl(trade.chart_image_url),
+      close_image_url: normalizeTradingViewChartUrl(trade.close_image_url),
       id: `tr_${Date.now()}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -359,16 +400,27 @@ export const SupabaseDataService = {
   },
 
   async updateTrade(id: string, updates: Partial<DbTrade>): Promise<void> {
+    const cleanUpdates = {
+      ...updates,
+      ...(updates.chart_image_url !== undefined
+        ? { chart_image_url: normalizeTradingViewChartUrl(updates.chart_image_url) }
+        : {}),
+      ...(updates.close_image_url !== undefined
+        ? { close_image_url: normalizeTradingViewChartUrl(updates.close_image_url) }
+        : {}),
+      updated_at: new Date().toISOString(),
+    }
+
     try {
       await supabase
         .from('trades')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update(cleanUpdates)
         .eq('id', id)
     } catch {}
 
     const existing = await this.getTrades()
     const updated = existing.map((t) =>
-      t.id === id ? { ...t, ...updates, updated_at: new Date().toISOString() } : t
+      t.id === id ? { ...t, ...cleanUpdates } : t
     )
     safeStorage.setItem(TRADES_CACHE_KEY, JSON.stringify(updated))
     safeStorage.dispatch('stac:db:trades:updated', updated)
@@ -407,7 +459,7 @@ export const SupabaseDataService = {
       pnl_percent: pnl,
       pips,
       notes: notes ? `${trade.notes ? trade.notes + ' | ' : ''}${notes}` : trade.notes,
-      close_image_url: closeImageUrl ? closeImageUrl.trim() : undefined,
+      close_image_url: normalizeTradingViewChartUrl(closeImageUrl),
       closed_at: new Date().toISOString(),
     }
 

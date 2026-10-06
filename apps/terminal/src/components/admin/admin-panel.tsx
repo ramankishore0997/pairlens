@@ -44,6 +44,7 @@ import {
   DbTrade,
   DbSubscription,
   DbSettings,
+  normalizeTradingViewChartUrl,
 } from '@/lib/services/supabase-service'
 
 export function AdminPanel({ onClose }: { onClose?: () => void }) {
@@ -96,8 +97,22 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     const trimmed = url.trim()
     if (!trimmed) return
 
+    // 1. Snapshot URL (/x/<id>)
+    const snapshotMatch = trimmed.match(/(?:tradingview\.com\/x\/|^x\/)([A-Za-z0-9]+)/i)
+    if (snapshotMatch) {
+      const id = snapshotMatch[1]
+      const imageUrl = normalizeTradingViewChartUrl(trimmed)
+      setTradeForm((prev) => ({
+        ...prev,
+        chart_image_url: imageUrl,
+      }))
+      toast.success('TradingView Snapshot Attached!')
+      return
+    }
+
+    // 2. Full Publication URL (/chart/<SYMBOL>/<ID>-<Title>)
     const matchFull = trimmed.match(/tradingview\.com\/chart\/([A-Za-z0-9_]+)\/([A-Za-z0-9]+)(?:-([^\s/?#]+))?/i)
-    const matchShort = trimmed.match(/tradingview\.com\/(?:chart|x|symbols)\/([A-Za-z0-9]+)/i)
+    const matchShort = trimmed.match(/tradingview\.com\/chart\/([A-Za-z0-9]+)/i)
 
     let symbol = ''
     let ideaId = ''
@@ -133,6 +148,13 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
       }))
 
       toast.success(`TradingView Idea Attached! Snapshot & ${symbol || 'Pair'} loaded.`)
+      return
+    }
+
+    const normalized = normalizeTradingViewChartUrl(trimmed)
+    if (normalized) {
+      setTradeForm((prev) => ({ ...prev, chart_image_url: normalized }))
+      toast.success('TradingView Chart Link Attached!')
     }
   }
 
@@ -141,17 +163,9 @@ export function AdminPanel({ onClose }: { onClose?: () => void }) {
     const trimmed = url.trim()
     if (!trimmed) return
 
-    const matchFull = trimmed.match(/tradingview\.com\/chart\/([A-Za-z0-9_]+)\/([A-Za-z0-9]+)(?:-([^\s/?#]+))?/i)
-    const matchShort = trimmed.match(/tradingview\.com\/(?:chart|x|symbols)\/([A-Za-z0-9]+)/i)
-
-    let ideaId = ''
-    if (matchFull) ideaId = matchFull[2]
-    else if (matchShort) ideaId = matchShort[1]
-
-    if (ideaId) {
-      const firstChar = ideaId.charAt(0).toLowerCase()
-      const imageUrl = `https://s3.tradingview.com/${firstChar}/${ideaId}_big.png`
-      setCloseProofUrl(imageUrl)
+    const normalized = normalizeTradingViewChartUrl(trimmed)
+    if (normalized) {
+      setCloseProofUrl(normalized)
       toast.success('TradingView Profit / Result Snapshot Attached!')
     }
   }

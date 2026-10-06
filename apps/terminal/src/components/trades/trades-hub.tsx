@@ -41,7 +41,7 @@ import {
   DialogDescription,
 } from '@pairlens/ui/components/ui/dialog'
 import { toast } from 'sonner'
-import { SupabaseDataService, DbTrade, DbUser, supabase } from '@/lib/services/supabase-service'
+import { SupabaseDataService, DbTrade, DbUser, supabase, normalizeTradingViewChartUrl } from '@/lib/services/supabase-service'
 import { soundAlertService } from '@/lib/services/sound-alert'
 import { AdminPanel } from '@/components/admin/admin-panel'
 import { CryptoCheckoutModal } from '@/components/subscription/crypto-checkout-modal'
@@ -190,8 +190,8 @@ export function TradesHub() {
           timeframe: t.leverage ? `${t.leverage}x` : '4H',
           leverage: t.leverage ? `1:${t.leverage}` : undefined,
           notes: t.notes,
-          chartImageUrl: t.chart_image_url,
-          closeImageUrl: t.close_image_url || undefined,
+          chartImageUrl: normalizeTradingViewChartUrl(t.chart_image_url) || undefined,
+          closeImageUrl: normalizeTradingViewChartUrl(t.close_image_url) || undefined,
           status: t.status === 'active' ? 'ACTIVE' : 'CLOSED',
           closeReason: (t.outcome?.toUpperCase() as any) || 'TP1',
           closePrice: t.current_price ? Number(t.current_price) : undefined,
@@ -649,6 +649,12 @@ export function TradesHub() {
                               const target = e.currentTarget
                               if (target.src.includes('_big.png')) {
                                 target.src = target.src.replace('_big.png', '_mid.png')
+                              } else if (!target.src.includes('/snapshots/')) {
+                                const match = target.src.match(/s3\.tradingview\.com\/[a-z0-9]+\/([A-Za-z0-9]+)/i)
+                                if (match) {
+                                  const id = match[1].replace(/_(big|mid)\.png$/i, '')
+                                  target.src = `https://s3.tradingview.com/snapshots/${id.charAt(0).toLowerCase()}/${id}.png`
+                                }
                               }
                             }}
                           />

@@ -22,6 +22,7 @@ import {
 import { Badge } from '@pairlens/ui/components/ui/badge'
 import { Button } from '@pairlens/ui/components/ui/button'
 import { TradeSignal } from './trades-hub'
+import { normalizeTradingViewChartUrl } from '@/lib/services/supabase-service'
 
 export function TradeChartSnapshot({
   trade,
@@ -35,7 +36,10 @@ export function TradeChartSnapshot({
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   const [zoomScale, setZoomScale] = useState(1)
   
-  const hasCloseImage = Boolean(trade.closeImageUrl && trade.closeImageUrl.trim().length > 5)
+  const normalizedClose = normalizeTradingViewChartUrl(trade.closeImageUrl)
+  const normalizedEntry = normalizeTradingViewChartUrl(trade.chartImageUrl)
+
+  const hasCloseImage = Boolean(normalizedClose && normalizedClose.length > 5)
   const [activeTab, setActiveTab] = useState<'ENTRY' | 'PROOF'>(
     trade.status === 'CLOSED' && hasCloseImage ? 'PROOF' : 'ENTRY'
   )
@@ -46,10 +50,10 @@ export function TradeChartSnapshot({
     Math.max(0.00001, Math.abs(trade.entryPrice - trade.stopLoss))
   ).toFixed(2)
 
-  const hasEntryImage = Boolean(trade.chartImageUrl && trade.chartImageUrl.trim().length > 5)
+  const hasEntryImage = Boolean(normalizedEntry && normalizedEntry.length > 5)
   const isViewingProof = activeTab === 'PROOF' && hasCloseImage
-  const currentImageUrl = isViewingProof ? trade.closeImageUrl : trade.chartImageUrl
-  const hasCurrentImage = isViewingProof ? Boolean(trade.closeImageUrl) : hasEntryImage
+  const currentImageUrl = isViewingProof ? normalizedClose : normalizedEntry
+  const hasCurrentImage = isViewingProof ? Boolean(normalizedClose) : hasEntryImage
 
   // Handle ESC key and scroll locking when fullscreen is active
   useEffect(() => {
@@ -171,6 +175,18 @@ export function TradeChartSnapshot({
               alt={`${trade.symbol} ${isViewingProof ? 'Profit Proof' : 'Trade Setup'} Chart`}
               className="w-full h-full object-contain object-center transition-transform duration-300 group-hover/img:scale-[1.02]"
               loading="lazy"
+              onError={(e) => {
+                const target = e.currentTarget
+                if (target.src.includes('_big.png')) {
+                  target.src = target.src.replace('_big.png', '_mid.png')
+                } else if (!target.src.includes('/snapshots/')) {
+                  const match = target.src.match(/s3\.tradingview\.com\/[a-z0-9]+\/([A-Za-z0-9]+)/i)
+                  if (match) {
+                    const id = match[1].replace(/_(big|mid)\.png$/i, '')
+                    target.src = `https://s3.tradingview.com/snapshots/${id.charAt(0).toLowerCase()}/${id}.png`
+                  }
+                }
+              }}
             />
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
               <span className="text-xs font-mono text-white bg-black/85 px-3.5 py-1.5 rounded-full border border-white/20 flex items-center gap-2 shadow-2xl backdrop-blur-md">
@@ -366,6 +382,18 @@ export function TradeChartSnapshot({
                   src={currentImageUrl}
                   alt={`${trade.symbol} Fullscreen ${isViewingProof ? 'Profit Proof' : 'Chart Setup'}`}
                   className="max-w-[96vw] max-h-[86vh] w-auto h-auto object-contain rounded-lg shadow-2xl border border-white/15 bg-black"
+                  onError={(e) => {
+                    const target = e.currentTarget
+                    if (target.src.includes('_big.png')) {
+                      target.src = target.src.replace('_big.png', '_mid.png')
+                    } else if (!target.src.includes('/snapshots/')) {
+                      const match = target.src.match(/s3\.tradingview\.com\/[a-z0-9]+\/([A-Za-z0-9]+)/i)
+                      if (match) {
+                        const id = match[1].replace(/_(big|mid)\.png$/i, '')
+                        target.src = `https://s3.tradingview.com/snapshots/${id.charAt(0).toLowerCase()}/${id}.png`
+                      }
+                    }
+                  }}
                 />
               </div>
             ) : (
