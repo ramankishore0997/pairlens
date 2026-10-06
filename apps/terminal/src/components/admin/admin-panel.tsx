@@ -27,6 +27,10 @@ import {
   LogOut,
   Send,
   MessageSquare,
+  Camera,
+  Scale,
+  Eye,
+  Layers,
 } from 'lucide-react'
 import { Button } from '@pairlens/ui/components/ui/button'
 import { Input } from '@pairlens/ui/components/ui/input'
